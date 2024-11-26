@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file,CMakeFiles/anki.dir/link.d CMakeFiles/anki.dir/src/Backend/Classes/Card.cpp.o CMakeFiles/anki.dir/src/Backend/Classes/Deck.cpp.o -o anki

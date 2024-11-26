@@ -1,0 +1,3 @@
+/home/tehpig/Downloads/anki-project/anki-project/build/CMakeFiles/anki.dir
+/home/tehpig/Downloads/anki-project/anki-project/build/CMakeFiles/edit_cache.dir
+/home/tehpig/Downloads/anki-project/anki-project/build/CMakeFiles/rebuild_cache.dir
