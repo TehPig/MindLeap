@@ -4,20 +4,21 @@
 #include <string>
 
 class Card {
-    protected:
+    private:
         std::string name;
         int id;
         std::string question;
         std::string answer;
 
     public:
-        Card(std::string n, int id, std::string q, std::string a);
+        Card(const std::string &n, int id, const std::string &q, const std::string &a);
 
         // Getters
-        std::string getName();
-        int getID();
+        std::string getName() const;
+        int getID() const;
         std::string getQuestion();
         std::string getAnswer();
+        bool operator==(const Card &card) const;
 };
 
 #endif
