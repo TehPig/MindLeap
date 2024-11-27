@@ -1,4 +1,4 @@
-#include <Backend/Classes/Card.h>
+#include <Backend/Classes/Card.hpp>
 
 #include <string>
 
@@ -9,7 +9,5 @@ std::string Card::getName() const { return this->name; }
 int Card::getID() const { return this->id; }
 std::string Card::getQuestion(){ return this->question; }
 std::string Card::getAnswer(){ return this->answer; }
-
-// Setters
 
 bool Card::operator==(const Card &card) const { return this->id == card.id; }

@@ -1,4 +1,4 @@
-#include <Backend/Classes/Deck.h>
+#include <Backend/Classes/Deck.hpp>
 
 #include <iostream>
 #include <algorithm>
@@ -8,7 +8,7 @@
 Deck::Deck(const std::string &n, int i, const std::vector<Card> &c) : name(n), id(i), cards(c) {}
 
 // Getters
-std::string Deck::getName() {
+std::string Deck::getName() const {
     return this->name;
 }
 
@@ -16,13 +16,13 @@ int Deck::getID() const {
     return this->id;
 }
 
-void Deck::listCards(){
+void Deck::listCards() const {
     for (int i = 0; i < this->cards.size(); i++){
         std::cout << i << ". " << cards[i].getName() << " - " << cards[i].getID() << "\n";
     }
 }
 
-// Setters
+// Database Operations
 void Deck::addCard(const Card &card){
     cards.push_back(card);
 }

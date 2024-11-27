@@ -1,4 +1,4 @@
-#include <Backend/Classes/User.h>
+#include <Backend/Classes/User.hpp>
 
 #include <iostream>
 #include <algorithm>
@@ -7,10 +7,34 @@
 
 User::User(const std::string &u, int i, const std::vector<Deck> &d) : username(u), id(i), decks(d) {}
 
-void User::listDecks(){
+// Getters
+void User::listDecks() const {
     for (int i = 0; i < this->decks.size(); i++){
         std::cout << i << ". " << decks[i].getName() << " - " << decks[i].getID() << "\n";
     }
+}
+
+// Setters
+void User::selectUser(int id) {
+    this->selected = this;
+    std::cout << "Selected User: " << this->username << "\n";
+}
+
+// Database Operations
+bool User::createUser(std::string username) {
+
+}
+// If decks are provided
+bool User::createUser(std::string username, std::vector<Deck> deck) {
+
+}
+
+bool User::renameUser(int id, std::string username) {
+
+}
+
+bool User::deleteUser(int id) {
+
 }
 
 void User::addDeck(const Deck &deck){

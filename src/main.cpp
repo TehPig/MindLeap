@@ -1,6 +1,6 @@
-#include <Backend/Classes/Card.h>
-#include <Backend/Classes/Deck.h>
-#include <Backend/Classes/User.h>
+#include <Backend/Classes/Card.hpp>
+#include <Backend/Classes/Deck.hpp>
+#include <Backend/Classes/User.hpp>
 
 #include <iostream>
 #include <vector>
