@@ -7,25 +7,31 @@
 #include <vector>
 
 class Deck {
-    private:
-        std::string name;
-        int id;
-        std::vector<Card> cards;
+private:
+    std::string name;
+    int id;
+    std::vector<Card> cards;
 
-    public:
-        Deck(const std::string &n, int i, const std::vector<Card> &c);
+public:
+    Deck(const std::string &n, int i, const std::vector<Card> &c);
 
-        // Getters
-        std::string getName() const;
-        int getID() const;
-        void listCards() const;
+    // Getters
+    std::string getName() const;
 
-        // Database Operations
-        void addCard(const Card &card);
-        bool removeCard(const Card &card);
+    int getID() const;
 
-        // Comparison
-        bool operator==(const Deck &deck) const;
+    void listCards() const;
+
+    // Database Operations
+    // Card
+    void addCard(const Card &card);
+    bool removeCard(const Card &card);
+
+    // Deck
+    void rename(const Deck &deck);
+
+    // Comparison
+    bool operator==(const Deck &deck) const;
 };
 
 #endif

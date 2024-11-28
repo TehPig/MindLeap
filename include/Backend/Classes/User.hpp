@@ -11,30 +11,39 @@
 #include <vector>
 
 class User {
-    private:
-        std::string username;
-        int id;
-        std::vector<Deck> decks;
-        User *selected;
+private:
+    std::string username;
+    int id;
+    std::vector<Deck> decks;
+    User *selected;
 
-    public:
-        User(const std::string &u, int i, const std::vector<Deck> &d);
+    // Card Stats
+    int times_seen;
+    int last_viewed;
+    int next_review;
 
-        // Getters
-        void listDecks() const;
+public:
+    User(const std::string &u, int i, const std::vector<Deck> &d);
 
-        // Setters
-        void selectUser(int id);
+    // Getters
+    void listDecks() const;
 
-        // Database Operations
-        bool createUser(std::string username);
-        bool createUser(std::string username, std::vector<Deck> decks);
+    // Setters
 
-        bool renameUser(int id, std::string username);
-        bool deleteUser(int id);
+    // Database Operations
+    // User
+    bool createUser() const;
 
-        void addDeck(const Deck &deck);
-        bool removeDeck(const Deck &deck);
+    void selectUser(int id);
+
+    bool renameUser(int id, std::string username);
+
+    bool deleteUser(int id);
+
+    // Deck
+    void addDeck(const Deck &deck);
+
+    bool removeDeck(const Deck &deck);
 };
 
 #endif
