@@ -8,7 +8,7 @@
 #include <vector>
 
 int main(){
-    Database* db = Database::getInstance("test.db");
+    Database* db = Database::getInstance("app_data.db");
     db->initialize();
 
     const Card card("test card", 25, "what is this", "a test");
