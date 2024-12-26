@@ -117,24 +117,48 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named anki
+# Target rules for targets named Anki
 
 # Build rule for target.
-anki: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 anki
-.PHONY : anki
+Anki: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Anki
+.PHONY : Anki
 
 # fast build rule for target.
-anki/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/build
-.PHONY : anki/fast
+Anki/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/build
+.PHONY : Anki/fast
+
+libs/sqlite/sqlite3.o: libs/sqlite/sqlite3.c.o
+.PHONY : libs/sqlite/sqlite3.o
+
+# target to build an object file
+libs/sqlite/sqlite3.c.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/libs/sqlite/sqlite3.c.o
+.PHONY : libs/sqlite/sqlite3.c.o
+
+libs/sqlite/sqlite3.i: libs/sqlite/sqlite3.c.i
+.PHONY : libs/sqlite/sqlite3.i
+
+# target to preprocess a source file
+libs/sqlite/sqlite3.c.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/libs/sqlite/sqlite3.c.i
+.PHONY : libs/sqlite/sqlite3.c.i
+
+libs/sqlite/sqlite3.s: libs/sqlite/sqlite3.c.s
+.PHONY : libs/sqlite/sqlite3.s
+
+# target to generate assembly for a file
+libs/sqlite/sqlite3.c.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/libs/sqlite/sqlite3.c.s
+.PHONY : libs/sqlite/sqlite3.c.s
 
 src/Backend/Classes/Card.o: src/Backend/Classes/Card.cpp.o
 .PHONY : src/Backend/Classes/Card.o
 
 # target to build an object file
 src/Backend/Classes/Card.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/src/Backend/Classes/Card.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/Card.cpp.o
 .PHONY : src/Backend/Classes/Card.cpp.o
 
 src/Backend/Classes/Card.i: src/Backend/Classes/Card.cpp.i
@@ -142,7 +166,7 @@ src/Backend/Classes/Card.i: src/Backend/Classes/Card.cpp.i
 
 # target to preprocess a source file
 src/Backend/Classes/Card.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/src/Backend/Classes/Card.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/Card.cpp.i
 .PHONY : src/Backend/Classes/Card.cpp.i
 
 src/Backend/Classes/Card.s: src/Backend/Classes/Card.cpp.s
@@ -150,7 +174,7 @@ src/Backend/Classes/Card.s: src/Backend/Classes/Card.cpp.s
 
 # target to generate assembly for a file
 src/Backend/Classes/Card.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/src/Backend/Classes/Card.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/Card.cpp.s
 .PHONY : src/Backend/Classes/Card.cpp.s
 
 src/Backend/Classes/Deck.o: src/Backend/Classes/Deck.cpp.o
@@ -158,7 +182,7 @@ src/Backend/Classes/Deck.o: src/Backend/Classes/Deck.cpp.o
 
 # target to build an object file
 src/Backend/Classes/Deck.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/src/Backend/Classes/Deck.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/Deck.cpp.o
 .PHONY : src/Backend/Classes/Deck.cpp.o
 
 src/Backend/Classes/Deck.i: src/Backend/Classes/Deck.cpp.i
@@ -166,7 +190,7 @@ src/Backend/Classes/Deck.i: src/Backend/Classes/Deck.cpp.i
 
 # target to preprocess a source file
 src/Backend/Classes/Deck.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/src/Backend/Classes/Deck.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/Deck.cpp.i
 .PHONY : src/Backend/Classes/Deck.cpp.i
 
 src/Backend/Classes/Deck.s: src/Backend/Classes/Deck.cpp.s
@@ -174,8 +198,80 @@ src/Backend/Classes/Deck.s: src/Backend/Classes/Deck.cpp.s
 
 # target to generate assembly for a file
 src/Backend/Classes/Deck.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/anki.dir/build.make CMakeFiles/anki.dir/src/Backend/Classes/Deck.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/Deck.cpp.s
 .PHONY : src/Backend/Classes/Deck.cpp.s
+
+src/Backend/Classes/User.o: src/Backend/Classes/User.cpp.o
+.PHONY : src/Backend/Classes/User.o
+
+# target to build an object file
+src/Backend/Classes/User.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/User.cpp.o
+.PHONY : src/Backend/Classes/User.cpp.o
+
+src/Backend/Classes/User.i: src/Backend/Classes/User.cpp.i
+.PHONY : src/Backend/Classes/User.i
+
+# target to preprocess a source file
+src/Backend/Classes/User.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/User.cpp.i
+.PHONY : src/Backend/Classes/User.cpp.i
+
+src/Backend/Classes/User.s: src/Backend/Classes/User.cpp.s
+.PHONY : src/Backend/Classes/User.s
+
+# target to generate assembly for a file
+src/Backend/Classes/User.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Classes/User.cpp.s
+.PHONY : src/Backend/Classes/User.cpp.s
+
+src/Backend/Database/setup.o: src/Backend/Database/setup.cpp.o
+.PHONY : src/Backend/Database/setup.o
+
+# target to build an object file
+src/Backend/Database/setup.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Database/setup.cpp.o
+.PHONY : src/Backend/Database/setup.cpp.o
+
+src/Backend/Database/setup.i: src/Backend/Database/setup.cpp.i
+.PHONY : src/Backend/Database/setup.i
+
+# target to preprocess a source file
+src/Backend/Database/setup.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Database/setup.cpp.i
+.PHONY : src/Backend/Database/setup.cpp.i
+
+src/Backend/Database/setup.s: src/Backend/Database/setup.cpp.s
+.PHONY : src/Backend/Database/setup.s
+
+# target to generate assembly for a file
+src/Backend/Database/setup.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/Backend/Database/setup.cpp.s
+.PHONY : src/Backend/Database/setup.cpp.s
+
+src/main.o: src/main.cpp.o
+.PHONY : src/main.o
+
+# target to build an object file
+src/main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/main.cpp.o
+.PHONY : src/main.cpp.o
+
+src/main.i: src/main.cpp.i
+.PHONY : src/main.i
+
+# target to preprocess a source file
+src/main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/main.cpp.i
+.PHONY : src/main.cpp.i
+
+src/main.s: src/main.cpp.s
+.PHONY : src/main.s
+
+# target to generate assembly for a file
+src/main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Anki.dir/build.make CMakeFiles/Anki.dir/src/main.cpp.s
+.PHONY : src/main.cpp.s
 
 # Help Target
 help:
@@ -185,13 +281,25 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... anki"
+	@echo "... Anki"
+	@echo "... libs/sqlite/sqlite3.o"
+	@echo "... libs/sqlite/sqlite3.i"
+	@echo "... libs/sqlite/sqlite3.s"
 	@echo "... src/Backend/Classes/Card.o"
 	@echo "... src/Backend/Classes/Card.i"
 	@echo "... src/Backend/Classes/Card.s"
 	@echo "... src/Backend/Classes/Deck.o"
 	@echo "... src/Backend/Classes/Deck.i"
 	@echo "... src/Backend/Classes/Deck.s"
+	@echo "... src/Backend/Classes/User.o"
+	@echo "... src/Backend/Classes/User.i"
+	@echo "... src/Backend/Classes/User.s"
+	@echo "... src/Backend/Database/setup.o"
+	@echo "... src/Backend/Database/setup.i"
+	@echo "... src/Backend/Database/setup.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
 .PHONY : help
 
 

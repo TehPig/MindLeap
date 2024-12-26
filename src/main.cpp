@@ -8,8 +8,11 @@
 #include <vector>
 
 int main(){
+    std::cout << "Test" << std::endl;
+
     Database* db = Database::getInstance("app_data.db");
     db->initialize();
+    std::cout << "Test2" << std::endl;
 
     const Card card("test card", 25, "what is this", "a test");
     const Card card2("test 2", 76, "another question", "answer here");
@@ -20,9 +23,14 @@ int main(){
     const std::vector<Deck> decks = {test};
     const User user("test user", 1234, decks);
 
-    int state = user.createUser();
-    if (state == false) std::cout << "Error creating user." << "\n";
+    
+
+    int user_created = user.createUser();
+    if (user_created == false) std::cout << "Error creating user.\n";
     else std::cout << "User created successfully." << "\n";
+
+    //int card_created = card.createCard();
+    //if(card_created == false) std::cout << "Error creating card.\n";
 
     user.listDecks();
     std::cout << "==========================" << "\n";

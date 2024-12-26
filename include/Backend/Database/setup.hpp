@@ -8,6 +8,7 @@
 #include <sqlite3.h>
 
 #include <string>
+#include <vector>
 
 class Database {
     private:
@@ -25,6 +26,7 @@ class Database {
         sqlite3 *getDB() const;
 
         void initialize();
+        bool prepare(const std::string &query, const std::vector<std::string> &stringParams, const std::vector<int> &intParams) const;
         bool execute(const std::string &query) const;
 
         static Database* getInstance(const std::string &path = "app_data.db");

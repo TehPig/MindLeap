@@ -19,6 +19,9 @@ class Card {
         std::string getQuestion();
         std::string getAnswer();
 
+        // Database Operations
+        bool createCard(const int deck_id) const;
+
         // Comparison
         bool operator==(const Card &card) const;
 };

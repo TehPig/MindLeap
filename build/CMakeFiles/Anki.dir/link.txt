@@ -1,0 +1,1 @@
+/usr/bin/g++ -g -Wl,--dependency-file=CMakeFiles/Anki.dir/link.d CMakeFiles/Anki.dir/src/Backend/Classes/Card.cpp.o CMakeFiles/Anki.dir/src/Backend/Classes/Deck.cpp.o CMakeFiles/Anki.dir/src/Backend/Classes/User.cpp.o CMakeFiles/Anki.dir/src/Backend/Database/setup.cpp.o CMakeFiles/Anki.dir/src/main.cpp.o CMakeFiles/Anki.dir/libs/sqlite/sqlite3.c.o -o Anki

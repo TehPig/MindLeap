@@ -1,0 +1,38 @@
+[
+{
+  "directory": "/home/tehpig/Downloads/anki-project/anki-project/build",
+  "command": "/usr/bin/g++  -I/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite -I/home/tehpig/Downloads/anki-project/anki-project/include -g -std=gnu++11 -o CMakeFiles/Anki.dir/src/Backend/Classes/Card.cpp.o -c /home/tehpig/Downloads/anki-project/anki-project/src/Backend/Classes/Card.cpp",
+  "file": "/home/tehpig/Downloads/anki-project/anki-project/src/Backend/Classes/Card.cpp",
+  "output": "CMakeFiles/Anki.dir/src/Backend/Classes/Card.cpp.o"
+},
+{
+  "directory": "/home/tehpig/Downloads/anki-project/anki-project/build",
+  "command": "/usr/bin/g++  -I/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite -I/home/tehpig/Downloads/anki-project/anki-project/include -g -std=gnu++11 -o CMakeFiles/Anki.dir/src/Backend/Classes/Deck.cpp.o -c /home/tehpig/Downloads/anki-project/anki-project/src/Backend/Classes/Deck.cpp",
+  "file": "/home/tehpig/Downloads/anki-project/anki-project/src/Backend/Classes/Deck.cpp",
+  "output": "CMakeFiles/Anki.dir/src/Backend/Classes/Deck.cpp.o"
+},
+{
+  "directory": "/home/tehpig/Downloads/anki-project/anki-project/build",
+  "command": "/usr/bin/g++  -I/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite -I/home/tehpig/Downloads/anki-project/anki-project/include -g -std=gnu++11 -o CMakeFiles/Anki.dir/src/Backend/Classes/User.cpp.o -c /home/tehpig/Downloads/anki-project/anki-project/src/Backend/Classes/User.cpp",
+  "file": "/home/tehpig/Downloads/anki-project/anki-project/src/Backend/Classes/User.cpp",
+  "output": "CMakeFiles/Anki.dir/src/Backend/Classes/User.cpp.o"
+},
+{
+  "directory": "/home/tehpig/Downloads/anki-project/anki-project/build",
+  "command": "/usr/bin/g++  -I/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite -I/home/tehpig/Downloads/anki-project/anki-project/include -g -std=gnu++11 -o CMakeFiles/Anki.dir/src/Backend/Database/setup.cpp.o -c /home/tehpig/Downloads/anki-project/anki-project/src/Backend/Database/setup.cpp",
+  "file": "/home/tehpig/Downloads/anki-project/anki-project/src/Backend/Database/setup.cpp",
+  "output": "CMakeFiles/Anki.dir/src/Backend/Database/setup.cpp.o"
+},
+{
+  "directory": "/home/tehpig/Downloads/anki-project/anki-project/build",
+  "command": "/usr/bin/g++  -I/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite -I/home/tehpig/Downloads/anki-project/anki-project/include -g -std=gnu++11 -o CMakeFiles/Anki.dir/src/main.cpp.o -c /home/tehpig/Downloads/anki-project/anki-project/src/main.cpp",
+  "file": "/home/tehpig/Downloads/anki-project/anki-project/src/main.cpp",
+  "output": "CMakeFiles/Anki.dir/src/main.cpp.o"
+},
+{
+  "directory": "/home/tehpig/Downloads/anki-project/anki-project/build",
+  "command": "/usr/bin/gcc  -I/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite -I/home/tehpig/Downloads/anki-project/anki-project/include -g -o CMakeFiles/Anki.dir/libs/sqlite/sqlite3.c.o -c /home/tehpig/Downloads/anki-project/anki-project/libs/sqlite/sqlite3.c",
+  "file": "/home/tehpig/Downloads/anki-project/anki-project/libs/sqlite/sqlite3.c",
+  "output": "CMakeFiles/Anki.dir/libs/sqlite/sqlite3.c.o"
+}
+]

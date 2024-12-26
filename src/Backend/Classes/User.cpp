@@ -23,7 +23,7 @@ void User::selectUser(int id) {
 
 // If decks are provided
 bool User::createUser() const {
-    Database* db = Database::getInstance("app_data.db");
+    Database* db = Database::getInstance();
     std::string query = "INSERT INTO Users (username, times_seen, last_viewed, next_review) VALUES ('" + this->username + "', 0, 0, 0);";
     if (!db->execute(query)) return false;
 
