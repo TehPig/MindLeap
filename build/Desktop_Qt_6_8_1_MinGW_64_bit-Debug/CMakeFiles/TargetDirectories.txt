@@ -1,5 +1,0 @@
-C:/Users/TehPig/CLionProjects/anki-project/build/Desktop_Qt_6_8_1_MinGW_64_bit-Debug/CMakeFiles/Anki.dir
-C:/Users/TehPig/CLionProjects/anki-project/build/Desktop_Qt_6_8_1_MinGW_64_bit-Debug/CMakeFiles/edit_cache.dir
-C:/Users/TehPig/CLionProjects/anki-project/build/Desktop_Qt_6_8_1_MinGW_64_bit-Debug/CMakeFiles/rebuild_cache.dir
-C:/Users/TehPig/CLionProjects/anki-project/build/Desktop_Qt_6_8_1_MinGW_64_bit-Debug/CMakeFiles/Anki_autogen_timestamp_deps.dir
-C:/Users/TehPig/CLionProjects/anki-project/build/Desktop_Qt_6_8_1_MinGW_64_bit-Debug/CMakeFiles/Anki_autogen.dir
