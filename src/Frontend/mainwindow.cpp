@@ -7,6 +7,8 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
+    // Once DB is initialized, fetch the current user, load the decks and display them to user
+
     ui->setupUi(this);
 }
 
@@ -19,10 +21,3 @@ void MainWindow::on_pushButton_clicked()
 {
     std::cout << "OMFG THIS WORKS";
 }
-
-
-void MainWindow::on_listWidget_currentRowChanged(int currentRow)
-{
-
-}
-
