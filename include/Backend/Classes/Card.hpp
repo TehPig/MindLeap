@@ -1,23 +1,23 @@
 #ifndef CARD_H
 #define CARD_H
 
-#include <string>
+#include <QString>
 
 class Card {
     private:
-        std::string name;
+        QString name;
         int id;
-        std::string question;
-        std::string answer;
+        QString question;
+        QString answer;
 
     public:
-        Card(const std::string &n, int id, const std::string &q, const std::string &a);
+        Card(const QString &n, int id, const QString &q, const QString &a);
 
         // Getters
-        std::string getName() const;
+        QString getName() const;
         int getID() const;
-        std::string getQuestion();
-        std::string getAnswer();
+        QString getQuestion() const;
+        QString getAnswer() const;
 
         // Database Operations
         bool createCard(const int deck_id) const;

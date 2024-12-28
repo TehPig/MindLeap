@@ -1,14 +1,17 @@
+#include <QString>
+
 #include <Backend/Classes/Deck.hpp>
 
 #include <iostream>
 #include <algorithm>
 #include <vector>
-#include <string>
 
-Deck::Deck(const std::string &n, int i, const std::vector<Card> &c) : name(n), id(i), cards(c) {}
+// Constructor
+Deck::Deck(const QString &n, int i, const std::vector<Card> &c)
+    : name(n), id(i), cards(c) {}
 
 // Getters
-std::string Deck::getName() const {
+QString Deck::getName() const {
     return this->name;
 }
 
@@ -17,22 +20,39 @@ int Deck::getID() const {
 }
 
 void Deck::listCards() const {
-    for (int i = 0; i < this->cards.size(); i++){
-        std::cout << i << ". " << cards[i].getName() << " - " << cards[i].getID() << "\n";
+    for (size_t i = 0; i < this->cards.size(); ++i) {
+        std::cout << i << ". " << cards[i].getName().toStdString()
+        << " - " << cards[i].getID() << "\n";
     }
 }
 
 // Database Operations
-void Deck::addCard(const Card &card){
+
+// Add a card to the deck
+void Deck::addCard(const Card &card) {
     cards.push_back(card);
 }
 
-bool Deck::removeCard(const Card &card){
-    const auto item = find(this->cards.begin(), this->cards.end(), card);
-    if (item == this->cards.end()) return false;
+// Remove a card from the deck
+bool Deck::removeCard(const Card &card) {
+    auto it = std::find(this->cards.begin(), this->cards.end(), card);
+    if (it == this->cards.end()) return false; // Card not found
 
-    this->cards.erase(item);
+    this->cards.erase(it);
     return true;
-};
+}
 
-bool Deck::operator==(const Deck &deck) const { return this->id == deck.id; }
+// Rename the deck
+void Deck::rename(const Deck &deck) {
+    if (this->id == deck.getID()) {
+        this->name = deck.getName();
+        std::cout << "[Deck] Renamed deck to " << this->name.toStdString() << "\n";
+    } else {
+        std::cerr << "[Deck] Mismatched IDs. Rename failed.\n";
+    }
+}
+
+// Comparison operator
+bool Deck::operator==(const Deck &deck) const {
+    return this->id == deck.id;
+}

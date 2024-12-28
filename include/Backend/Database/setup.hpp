@@ -5,29 +5,27 @@
 #ifndef SETUP_H
 #define SETUP_H
 
-#include <sqlite3.h>
+#include <QSqlDatabase>
+#include <QString>
 
 #include <string>
-#include <vector>
 
 class Database {
     private:
         static Database *instance;
-        sqlite3 *db;
+        QSqlDatabase db;
         std::string path;
-
-        Database();
 
     public:
         Database(const std::string &path);
         ~Database();
 
         // Getter
-        sqlite3 *getDB() const;
+        QSqlDatabase getDB() const;
 
         void initialize();
-        bool prepare(const std::string &query, const std::vector<std::string> &stringParams, const std::vector<int> &intParams) const;
-        bool execute(const std::string &query) const;
+        bool prepare(const QString &query, const QVariantList &stringParams) const;
+        bool execute(const QString &query) const;
 
         static Database* getInstance(const std::string &path = "app_data.db");
 };

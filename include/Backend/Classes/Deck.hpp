@@ -3,20 +3,19 @@
 
 #include <Backend/Classes/Card.hpp>
 
-#include <string>
 #include <vector>
 
 class Deck {
 private:
-    std::string name;
+    QString name;
     int id;
     std::vector<Card> cards;
 
 public:
-    Deck(const std::string &n, int i, const std::vector<Card> &c);
+    Deck(const QString &n, int i, const std::vector<Card> &c);
 
     // Getters
-    std::string getName() const;
+    QString getName() const;
 
     int getID() const;
 

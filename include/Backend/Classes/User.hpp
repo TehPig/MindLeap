@@ -12,7 +12,7 @@
 
 class User {
 private:
-    std::string username;
+    QString username;
     int id;
     std::vector<Deck> decks;
     User *selected;
@@ -23,7 +23,7 @@ private:
     int next_review;
 
 public:
-    User(const std::string &u, int i, const std::vector<Deck> &d);
+    User(const QString &u, int i, const std::vector<Deck> &d);
 
     // Getters
     void listDecks() const;
@@ -36,7 +36,7 @@ public:
 
     void selectUser(int id);
 
-    bool renameUser(int id, std::string username);
+    bool renameUser(int id, QString username);
 
     bool deleteUser(int id);
 
