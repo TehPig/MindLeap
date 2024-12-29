@@ -8,27 +8,27 @@
 
 # TODO List
 ### Priorities
-- [] Fix Database relation IDs (decks, cards, deckscards)
-- [] Improve the List formatting (main window)
-- [] Be able to study the cards (intervals, etc)
-- [] Implement stats
-- [] Allow users to rename profiles
-- [] Add the rest of the GUI and methods
+- [ ] Fix Database relation IDs (decks, cards, deckscards)
+- [ ] Improve the List formatting (main window)
+- [ ] Be able to study the cards (intervals, etc)
+- [ ] Implement stats
+- [ ] Allow users to rename profiles
+- [ ] Add the rest of the GUI and methods
 - ```
-- [] Create deck by only specifying name
-- [] Improve GUI design
-- [] Add card by specifying question and answer
+- [ ] Create deck by only specifying name
+- [ ] Improve GUI design
+- [ ] Add card by specifying question and answer
 - ```
-- [] Add tests
-- [] UML Diagrams
+- [ ] Add tests
+- [ ] UML Diagrams
 
 ### Not-so important
-- [] Make compatible with Docker
-- [] Add sound effects
-- [] Add animations
-- [] Add a 50 card collection for both the app and Anki
-- [] Screenshots of executing the app
-- [] Enough comments within code
+- [ ] Make compatible with Docker
+- [ ] Add sound effects
+- [ ] Add animations
+- [ ] Add a 50 card collection for both the app and Anki
+- [ ] Screenshots of executing the app
+- [ ] Enough comments within code
 
 ### Done
 - [x] Basic User, Deck, Card classes
