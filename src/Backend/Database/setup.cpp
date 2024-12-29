@@ -1,18 +1,17 @@
-//
-// Created by TehPig on 11/27/2024.
-//
-#include <QSqlDatabase>
+#include <iostream>
+
 #include <QSqlQuery>
 #include <QSqlError>
 
-#include <Backend/Database/setup.hpp>
+#include "Backend/Database/setup.hpp"
+#include "Backend/Database/queries.hpp"
 
-#include <iostream>
-#include <string>
+// Define static members
+std::unique_ptr<Database> Database::instance;
+std::once_flag Database::initInstanceFlag;
 
-Database* Database::instance = nullptr;
-
-Database::Database(const std::string &path) : path(path), db(QSqlDatabase::addDatabase("QSQLITE")) {
+Database::Database(const std::string &path) : db(QSqlDatabase::addDatabase("QSQLITE")), path(path) {
+    std::cerr << "[Database] Constructor called with path: " << path << "\n";
     db.setDatabaseName(QString::fromStdString(path));
 }
 
@@ -20,51 +19,42 @@ Database::~Database() {
     if (db.isOpen()) db.close();
 }
 
+Database* Database::getInstance(const std::string &path) {
+    std::call_once(initInstanceFlag, [&]() {
+        std::cerr << "[Database] Initializing instance with path: " << path << "\n";
+        instance.reset(new Database(path));
+    });
+    return instance.get();
+}
+
 QSqlDatabase Database::getDB() const {
+    std::cerr << "[Database] getDB called\n";
     return db;
 }
 
 void Database::initialize() {
+    std::cerr << "[Database] Initializing database\n";
     if (!db.open()) {
-        std::cerr << "[Database] Could not open database: " << db.lastError().text().toStdString() << "\n";
-        exit(EXIT_FAILURE);
+        throw std::runtime_error("[Database] Could not open database: " + db.lastError().text().toStdString());
     }
 
     // Create tables
-    if (!execute("CREATE TABLE IF NOT EXISTS Users ("
-                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                 "username TEXT NOT NULL UNIQUE, "
-                 "times_seen INTEGER, "
-                 "last_viewed INTEGER, "
-                 "next_review INTEGER);") ||
-        !execute("CREATE TABLE IF NOT EXISTS Decks ("
-                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                 "name TEXT NOT NULL UNIQUE, "
-                 "user_id INTEGER NOT NULL, "
-                 "FOREIGN KEY(user_id) REFERENCES Users(id));") ||
-        !execute("CREATE TABLE IF NOT EXISTS Cards ("
-                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                 "question TEXT NOT NULL, "
-                 "answer TEXT NOT NULL, "
-                 "deck_id INTEGER NOT NULL, "
-                 "FOREIGN KEY(deck_id) REFERENCES Decks(id));") ||
-        !execute("CREATE TABLE IF NOT EXISTS DecksCards ("
-                 "deck_id INTEGER NOT NULL, "
-                 "card_id INTEGER NOT NULL, "
-                 "PRIMARY KEY(deck_id, card_id), "
-                 "FOREIGN KEY(deck_id) REFERENCES Decks(id) ON DELETE CASCADE, "
-                 "FOREIGN KEY(card_id) REFERENCES Cards(id) ON DELETE CASCADE);")) {
-        std::cerr << "[Database] Failed to initialize database.\n";
-        exit(EXIT_FAILURE);
+    if (!execute(CREATE_USERS_TABLE) ||
+        !execute(CREATE_DECKS_TABLE) ||
+        !execute(CREATE_CARDS_TABLE) ||
+        !execute(CREATE_DECKS_CARDS_TABLE) ||
+        !execute(CREATE_SAVED_USER_TABLE)) {
+        throw std::runtime_error("[Database] Failed to initialize database.");
     }
 
-    std::cout << "[Database] Initialized successfully!\n";
+    std::cerr << "[Database] Initialized successfully!\n";
 }
 
-bool Database::prepare(const QString &query, const QVariantList &params) const {
+bool Database::prepare(const std::string &query, const QVariantList &params) const {
+    std::cerr << "[Database] Preparing query: " << query << "\n";
     QSqlQuery sqlQuery(db);
-    if (!sqlQuery.prepare(query)) {
-        std::cerr << "[DB] Query preparation failed: " << query.toStdString() << "\n";
+    if (!sqlQuery.prepare(QString::fromStdString(query))) {
+        std::cerr << "[DB] Query preparation failed: " << query << "\n";
         std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
         return false;
     }
@@ -76,7 +66,7 @@ bool Database::prepare(const QString &query, const QVariantList &params) const {
 
     // Execute the query
     if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Query execution failed: " << query.toStdString() << "\n";
+        std::cerr << "[DB] Query execution failed: " << query << "\n";
         std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
         return false;
     }
@@ -84,18 +74,13 @@ bool Database::prepare(const QString &query, const QVariantList &params) const {
     return true;
 }
 
-bool Database::execute(const QString &query) const {
-    QSqlQuery sqlQuery(db);
-    if (!sqlQuery.exec(query)) {
-        std::cerr << "[DB] Query execution failed: " << query.toStdString() << "\n";
+bool Database::execute(const std::string &query) const {
+    std::cerr << "[Database] Executing query: " << query << "\n";
+    if (QSqlQuery sqlQuery(db); !sqlQuery.exec(QString::fromStdString(query))) {
+        std::cerr << "[DB] Query execution failed: " << query << "\n";
         std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
         return false;
     }
 
     return true;
-}
-
-Database* Database::getInstance(const std::string &path) {
-    if (instance == nullptr) instance = new Database(path);
-    return instance;
 }

@@ -1,29 +1,32 @@
+// Card.hpp
 #ifndef CARD_H
 #define CARD_H
 
 #include <QString>
 
 class Card {
-    private:
-        QString name;
-        int id;
-        QString question;
-        QString answer;
+    QString name;
+    int id;
+    QString question;
+    QString answer;
 
-    public:
-        Card(const QString &n, int id, const QString &q, const QString &a);
+public:
+    Card(QString n, QString q, QString a);
 
-        // Getters
-        QString getName() const;
-        int getID() const;
-        QString getQuestion() const;
-        QString getAnswer() const;
+    // Getters
+    QString getName() const;
+    int getID() const;
+    QString getQuestion() const;
+    QString getAnswer() const;
 
-        // Database Operations
-        bool createCard(const int deck_id) const;
+    // Setters
+    void setID(int newID);
 
-        // Comparison
-        bool operator==(const Card &card) const;
+    // Database Operations
+    bool createCard(int deck_id);
+
+    // Comparison operator
+    bool operator==(const Card &card) const;
 };
 
 #endif

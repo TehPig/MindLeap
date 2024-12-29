@@ -1,14 +1,13 @@
-#include <Backend/Classes/Card.hpp>
-#include <Backend/Database/setup.hpp>
-
-#include <QVariant>
+// Card.cpp
 #include <QSqlQuery>
 #include <QSqlError>
 #include <iostream>
+#include "Backend/Classes/Card.hpp"
+#include "Backend/Database/setup.hpp"
 
 // Constructor
-Card::Card(const QString &n, const int id, const QString &q, const QString &a)
-    : name(n), id(id), question(q), answer(a) {}
+Card::Card(QString n, QString q, QString a)
+    : name(n), question(q), answer(a), id(-1) {}
 
 // Getters
 QString Card::getName() const {
@@ -27,18 +26,17 @@ QString Card::getAnswer() const {
     return this->answer;
 }
 
+// Setters
+void Card::setID(int newID) {
+    this->id = newID;
+}
+
 // Database Operations
-bool Card::createCard(const int deck_id) const {
-    Database *db = Database::getInstance();
-    QString query = "INSERT INTO Cards (question, answer, deck_id) VALUES (?, ?, ?);";
-
+bool Card::createCard(int deck_id) {
+    const Database *db = Database::getInstance();
     QSqlQuery sqlQuery(db->getDB());
-    if (!sqlQuery.prepare(query)) {
-        std::cerr << "[DB] Failed to prepare query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
 
+    sqlQuery.prepare("INSERT INTO Cards (question, answer, deck_id) VALUES (?, ?, ?);");
     sqlQuery.addBindValue(this->question);
     sqlQuery.addBindValue(this->answer);
     sqlQuery.addBindValue(deck_id);
@@ -49,6 +47,7 @@ bool Card::createCard(const int deck_id) const {
         return false;
     }
 
+    this->id = sqlQuery.lastInsertId().toInt();
     return true;
 }
 

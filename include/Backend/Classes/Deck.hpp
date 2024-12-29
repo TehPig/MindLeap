@@ -1,33 +1,36 @@
 #ifndef DECK_H
 #define DECK_H
 
+#include <vector>
+#include <QString>
+
 #include <Backend/Classes/Card.hpp>
 
-#include <vector>
-
 class Deck {
-private:
     QString name;
     int id;
     std::vector<Card> cards;
 
 public:
-    Deck(const QString &n, int i, const std::vector<Card> &c);
+    Deck(QString n, int i, const std::vector<Card> &c);
+    Deck(QString n, int i);
 
     // Getters
     QString getName() const;
 
     int getID() const;
 
-    void listCards() const;
+    std::vector<Card> listCards() const;
+    int getCardCount() const;
 
     // Database Operations
+
     // Card
-    void addCard(const Card &card);
+    bool addCard(Card &card);
     bool removeCard(const Card &card);
 
     // Deck
-    void rename(const Deck &deck);
+    void rename(const QString &newName);
 
     // Comparison
     bool operator==(const Deck &deck) const;

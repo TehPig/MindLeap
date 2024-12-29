@@ -1,33 +1,29 @@
-//
-// Created by TehPig on 11/27/2024.
-//
-
-#ifndef SETUP_H
-#define SETUP_H
-
-#include <QSqlDatabase>
-#include <QString>
+#ifndef SETUP_HPP
+#define SETUP_HPP
 
 #include <string>
+#include <memory>
+#include <mutex>
+#include <QSqlDatabase>
+#include <QVariantList>
 
 class Database {
-    private:
-        static Database *instance;
-        QSqlDatabase db;
-        std::string path;
+private:
+    static std::unique_ptr<Database> instance;
+    static std::once_flag initInstanceFlag;
+    QSqlDatabase db;
+    std::string path;
 
-    public:
-        Database(const std::string &path);
-        ~Database();
+    explicit Database(const std::string &path);
 
-        // Getter
-        QSqlDatabase getDB() const;
+public:
+    ~Database();
 
-        void initialize();
-        bool prepare(const QString &query, const QVariantList &stringParams) const;
-        bool execute(const QString &query) const;
-
-        static Database* getInstance(const std::string &path = "app_data.db");
+    static Database* getInstance(const std::string &path = "app_data.db");
+    QSqlDatabase getDB() const;
+    void initialize();
+    bool prepare(const std::string &query, const QVariantList &params) const;
+    bool execute(const std::string &query) const;
 };
 
-#endif
+#endif // SETUP_HPP

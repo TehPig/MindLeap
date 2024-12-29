@@ -5,13 +5,12 @@
 #ifndef USER_H
 #define USER_H
 
-#include <Backend/Classes/Deck.hpp>
-
-#include <string>
+#include <QString>
 #include <vector>
 
+#include <Backend/Classes/Deck.hpp>
+
 class User {
-private:
     QString username;
     int id;
     std::vector<Deck> decks;
@@ -23,26 +22,23 @@ private:
     int next_review;
 
 public:
-    User(const QString &u, int i, const std::vector<Deck> &d);
+    User(QString u, int i, const std::vector<Deck> &d);
 
     // Getters
-    void listDecks() const;
+    static std::vector<Deck> listDecks();
 
     // Setters
 
     // Database Operations
+
     // User
     bool createUser() const;
-
     void selectUser(int id);
-
-    bool renameUser(int id, QString username);
-
-    bool deleteUser(int id);
+    bool renameUser(int id, const QString& username);
+    static bool deleteUser(int id);
 
     // Deck
     void addDeck(const Deck &deck);
-
     bool removeDeck(const Deck &deck);
 };
 
