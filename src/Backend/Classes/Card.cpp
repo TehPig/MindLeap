@@ -2,21 +2,19 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <iostream>
+
+#include <sstream>
+#include <random>
+
+#include "Backend/Utilities/generateID.hpp"
 #include "Backend/Classes/Card.hpp"
 #include "Backend/Database/setup.hpp"
 
 // Constructor
-Card::Card(QString n, QString q, QString a)
-    : name(n), question(q), answer(a), id(-1) {}
+Card::Card(QString q, QString a)
+    : question(q), answer(a) {}
 
 // Getters
-QString Card::getName() const {
-    return this->name;
-}
-
-int Card::getID() const {
-    return this->id;
-}
 
 QString Card::getQuestion() const {
     return this->question;
@@ -26,32 +24,36 @@ QString Card::getAnswer() const {
     return this->answer;
 }
 
-// Setters
-void Card::setID(int newID) {
-    this->id = newID;
-}
-
 // Database Operations
-bool Card::createCard(int deck_id) {
+
+bool Card::createCard() const {
     const Database *db = Database::getInstance();
     QSqlQuery sqlQuery(db->getDB());
 
-    sqlQuery.prepare("INSERT INTO Cards (question, answer, deck_id) VALUES (?, ?, ?);");
-    sqlQuery.addBindValue(this->question);
-    sqlQuery.addBindValue(this->answer);
-    sqlQuery.addBindValue(deck_id);
+    std::string id;
+    bool idExists;
 
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Failed to execute query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
+    do {
+        // Generate a unique ID
+        id = generateID();
+        std::cout << "Generated ID: " << id << "\n";
 
-    this->id = sqlQuery.lastInsertId().toInt();
+        sqlQuery.prepare("INSERT INTO Cards (id, question, answer) "
+                         "SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM Cards WHERE id = ?);");
+        sqlQuery.addBindValue(QString::fromStdString(id));
+        sqlQuery.addBindValue(this->question);
+        sqlQuery.addBindValue(this->answer);
+        sqlQuery.addBindValue(QString::fromStdString(id));
+
+        if (!sqlQuery.exec()) {
+            std::cerr << "[DB] Failed to execute query: "
+                      << sqlQuery.lastError().text().toStdString() << "\n";
+            return false;
+        }
+
+        idExists = sqlQuery.numRowsAffected() == 0;
+    } while (idExists);
+
+    std::cout << "Card created successfully with ID: " << id << "\n";
     return true;
-}
-
-// Comparison operator
-bool Card::operator==(const Card &card) const {
-    return this->id == card.id;
 }

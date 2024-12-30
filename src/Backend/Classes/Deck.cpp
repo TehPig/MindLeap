@@ -44,8 +44,8 @@ std::vector<Card> Deck::listCards() const {
         QString name = sqlQuery.value(1).toString();
         QString question = sqlQuery.value(2).toString();
         QString answer = sqlQuery.value(3).toString();
-        cards.emplace_back(name, question, answer);
-        cards.back().setID(id); // Set the ID for the card
+        cards.emplace_back(question, answer);
+        //cards.back().setID(id); // Set the ID for the card
     }
 
     return cards;
@@ -74,80 +74,75 @@ int Deck::getCardCount() const {
 // Database Operations
 
 // Add a card to the deck
-bool Deck::addCard(Card &card) {
-    const Database *db = Database::getInstance();
-
-    // Insert the card into the Cards table
-    QSqlQuery sqlQuery(db->getDB());
-    sqlQuery.prepare("INSERT INTO Cards (name, question, answer, deck_id) VALUES (?, ?, ?, ?);");
-    sqlQuery.addBindValue(card.getName());
-    sqlQuery.addBindValue(card.getQuestion());
-    sqlQuery.addBindValue(card.getAnswer());
-    sqlQuery.addBindValue(this->id);
-
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Failed to execute query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    // Retrieve the ID of the newly inserted card
-    int cardID = sqlQuery.lastInsertId().toInt();
-    card.setID(cardID); // Set the ID for the card
-
-    // Insert the deck_id and card_id into the deckscards table
-    const QString query = "INSERT INTO deckscards (deck_id, card_id) VALUES (?, ?);";
-    if (!sqlQuery.prepare(query)) {
-        std::cerr << "[DB] Failed to prepare query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    sqlQuery.addBindValue(this->id);
-    sqlQuery.addBindValue(cardID);
-
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Failed to execute query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    // Add the card to the deck's card list
-    cards.push_back(card);
-    return true;
-}
+// bool Deck::addCard(Card &card) {
+//     const Database *db = Database::getInstance();
+//
+//     // Insert the card into the Cards table
+//     QSqlQuery sqlQuery(db->getDB());
+//     sqlQuery.prepare("INSERT INTO Cards (id, question, answer) VALUES (?, ?, ?);");
+//     sqlQuery.addBindValue(this->id);
+//     sqlQuery.addBindValue(card.getQuestion());
+//     sqlQuery.addBindValue(card.getAnswer());
+//
+//     if (!sqlQuery.exec()) {
+//         std::cerr << "[DB] Failed to execute query: "
+//                   << sqlQuery.lastError().text().toStdString() << "\n";
+//         return false;
+//     }
+//
+//     // Insert the deck_id and card_id into the deckscards table
+//     const QString query = "INSERT INTO deckscards (deck_id, card_id) VALUES (?, ?);";
+//     if (!sqlQuery.prepare(query)) {
+//         std::cerr << "[DB] Failed to prepare query: "
+//                   << sqlQuery.lastError().text().toStdString() << "\n";
+//         return false;
+//     }
+//
+//     sqlQuery.addBindValue(this->id);
+//     //sqlQuery.addBindValue(cardID);
+//
+//     if (!sqlQuery.exec()) {
+//         std::cerr << "[DB] Failed to execute query: "
+//                   << sqlQuery.lastError().text().toStdString() << "\n";
+//         return false;
+//     }
+//
+//     // Add the card to the deck's card list
+//     cards.push_back(card);
+//     return true;
+// }
 
 // Remove a card from the deck
-bool Deck::removeCard(const Card &card) {
-    const Database *db = Database::getInstance();
-    const QString query = "DELETE FROM deckscards WHERE card_id = ? AND deck_id = ?;";
-
-    QSqlQuery sqlQuery(db->getDB());
-    if (!sqlQuery.prepare(query)) {
-        std::cerr << "[DB] Failed to prepare query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    sqlQuery.addBindValue(card.getID());
-    sqlQuery.addBindValue(this->id);
-
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Failed to execute query: "
-                  << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    const auto it = std::find_if(this->cards.begin(), this->cards.end(),
-                                 [&card](const Card &c) { return c == card; });
-    if (it == this->cards.end()) {
-        std::cerr << "[Deck] Card not found. Remove failed.\n";
-        return false;
-    }
-
-    this->cards.erase(it);
-    return true;
-}
+// bool Deck::removeCard(const Card &card) {
+//     const Database *db = Database::getInstance();
+//     const QString query = "DELETE FROM deckscards WHERE card_id = ? AND deck_id = ?;";
+//
+//     QSqlQuery sqlQuery(db->getDB());
+//     if (!sqlQuery.prepare(query)) {
+//         std::cerr << "[DB] Failed to prepare query: "
+//                   << sqlQuery.lastError().text().toStdString() << "\n";
+//         return false;
+//     }
+//
+//     //sqlQuery.addBindValue(card.getID());
+//     //sqlQuery.addBindValue(this->id);
+//
+//     if (!sqlQuery.exec()) {
+//         std::cerr << "[DB] Failed to execute query: "
+//                   << sqlQuery.lastError().text().toStdString() << "\n";
+//         return false;
+//     }
+//
+//     const auto it = std::find_if(this->cards.begin(), this->cards.end(),
+//                                  [&card](const Card &c) { return c == card; });
+//     if (it == this->cards.end()) {
+//         std::cerr << "[Deck] Card not found. Remove failed.\n";
+//         return false;
+//     }
+//
+//     this->cards.erase(it);
+//     return true;
+// }
 
 // Rename the deck
 void Deck::rename(const QString &newName) {

@@ -3,32 +3,27 @@
 
 inline auto CREATE_USERS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL UNIQUE,
-        times_seen INTEGER,
-        last_viewed INTEGER,
-        next_review INTEGER
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE
     );
 )";
 
 inline auto CREATE_DECKS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Decks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        user_id INTEGER NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES Users(id)
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
     );
 )";
 
 inline auto CREATE_CARDS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Cards (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT PRIMARY KEY,
         question TEXT NOT NULL,
-        answer TEXT NOT NULL,
-        deck_id INTEGER NOT NULL,
-        FOREIGN KEY(deck_id) REFERENCES Decks(id)
+        answer TEXT NOT NULL
     );
 )";
+
+// Junction tables
 
 inline auto CREATE_DECKS_CARDS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS DecksCards (
@@ -40,6 +35,18 @@ inline auto CREATE_DECKS_CARDS_TABLE = R"(
     );
 )";
 
+inline auto CREATE_USER_DECKS_TABLE = R"(
+    CREATE TABLE IF NOT EXISTS UserDecks (
+        user_id INTEGER NOT NULL,
+        deck_id INTEGER NOT NULL,
+        PRIMARY KEY(user_id, deck_id),
+        FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE,
+        FOREIGN KEY(deck_id) REFERENCES Decks(id) ON DELETE CASCADE
+    );
+)";
+
+// Utility tables
+
 inline auto CREATE_SAVED_USER_TABLE = R"(
     CREATE TABLE IF NOT EXISTS SavedUser (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,18 +55,41 @@ inline auto CREATE_SAVED_USER_TABLE = R"(
     );
 )";
 
+// Stats tables
+
+// Stats include
+// Time spent in seconds
+// Number of cards viewed
+// List hard and easy cards
+// Times used the app within the day
+// Stats for each button (again, hard, good, easy)
+
 inline auto CREATE_USER_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS UserStats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL,
+        user_id TEXT PRIMARY KEY,
         date DATE NOT NULL,
-        new_cards INTEGER DEFAULT 0,
-        relearning_cards INTEGER DEFAULT 0,
-        review_cards INTEGER DEFAULT 0,
+        cards_seen INTEGER DEFAULT 0,
+        pressed_again INTEGER DEFAULT 0,
+        pressed_hard INTEGER DEFAULT 0,
+        pressed_good INTEGER DEFAULT 0,
+        pressed_easy INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
+        times_used INTEGER DEFAULT 0,
         FOREIGN KEY(user_id) REFERENCES Users(id)
     );
 )";
+
+// Card Stats include
+// Number of times seen
+// Date and times seen will be used to calculate times appeared in a day
+// Time to reappear
+// - first button (again) will have a multiplier of 0.0 if pressed (resets interval)
+// - second button (hard) will have a multiplier of 1.2 if pressed (increases interval by 20%)
+// - third button (good) will have a multiplier of 1.5 if pressed (increases interval by 50%)
+// - fourth button (easy) will have a multiplier of 2.0 if pressed (doubles the interval)
+// - harder cards reappear sooner e.g., 1 minute, 10 minutes, 1 day, 3 days
+// - easier cards reappear later e.g., 1 day, 3 days, 1 week, 1 month
+// Last seen timestamp (can be used to calculate time to reappear)
 
 inline auto CREATE_CARD_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS CardStats (
@@ -68,9 +98,9 @@ inline auto CREATE_CARD_STATS_TABLE = R"(
         user_id INTEGER NOT NULL,
         date DATE NOT NULL,
         times_seen INTEGER DEFAULT 0,
-        correct_answers INTEGER DEFAULT 0,
-        incorrect_answers INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
+        time_to_reappear INTEGER DEFAULT 0,
+        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY(card_id) REFERENCES Cards(id) ON DELETE CASCADE,
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
     );

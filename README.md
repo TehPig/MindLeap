@@ -12,7 +12,6 @@
 - [ ] Improve the List formatting (main window)
 - [ ] Be able to study the cards (intervals, etc)
 - [ ] Implement stats
-- [ ] Allow users to rename profiles
 - [ ] Add the rest of the GUI and methods
 - ```
 - [ ] Create deck by only specifying name
@@ -36,6 +35,7 @@
 - [x] Working basic build (works with CLion and Qt Creator)
 - [x] Support for multiple users
 - [x] Optimized Functions
+- [x] Allow users to rename profiles
 - [x] Organized file structure, also compatible with Qt Creator
 
 ## Ideas

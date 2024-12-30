@@ -28,8 +28,8 @@ int main(int argc, char *argv[]) {
     std::cout << "Database initialized successfully." << std::endl;
 
     // Create some cards and decks for testing purposes
-    const Card card("test card", "what is this", "a test");
-    const Card card2("test 2", "another question", "answer here");
+    const Card card("what is this", "a test");
+    const Card card2("another question", "answer here");
 
     const std::vector<Card> cards = {card, card2};
     Deck test("test deck", 1234, cards);
@@ -45,8 +45,8 @@ int main(int argc, char *argv[]) {
     }
 
     // Add a new card to the deck
-    Card newCard("new card", "new question", "new answer");
-    if (newCard.createCard(1234)) {
+    Card newCard("new question", "new answer");
+    if (newCard.createCard()) {
         std::cout << "Card added successfully.\n";
     } else {
         std::cerr << "Failed to add card.\n";
