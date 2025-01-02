@@ -12,34 +12,37 @@
 
 class User {
     QString username;
-    int id;
+    QString id;
     std::vector<Deck> decks;
-    User *selected;
-
-    // Card Stats
-    int times_seen;
-    int last_viewed;
-    int next_review;
 
 public:
-    User(QString u, int i, const std::vector<Deck> &d);
+    // Constructors
+    //User(const QString& u, QString& i, const std::vector<Deck> &d);
+    User(const QString& name, const QString& id);
+    User(const QString& name_or_id);
+    // For the user of listUsers function
+    User();
 
     // Getters
-    static std::vector<Deck> listDecks();
+    QString getUsername() const;
+    QString getID() const;
 
     // Setters
 
     // Database Operations
-
     // User
-    bool createUser() const;
-    void selectUser(int id);
-    bool renameUser(int id, const QString& username);
-    static bool deleteUser(int id);
+    bool create();
+    bool select();
+    bool rename(const QString& username);
+    bool _delete() const;
+
+    static std::vector<User> listUsers();
 
     // Deck
     void addDeck(const Deck &deck);
     bool removeDeck(const Deck &deck);
+
+    std::vector<Deck> listDecks();
 };
 
 #endif

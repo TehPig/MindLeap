@@ -11,18 +11,20 @@
 #include "Backend/Database/setup.hpp"
 
 // Constructor
-Card::Card(QString q, QString a)
-    : question(q), answer(a) {}
+Card::Card(const QString& id, const QString& q, const QString& a)
+: id(id), question(q), answer(a) {}
+Card::Card(const QString& q, const QString& a)
+: question(q), answer(a) {}
+Card::Card(const QString& id)
+    : id(id) {}
 
 // Getters
+QString Card::getID() const { return this->id; }
+QString Card::getQuestion() const { return this->question; }
+QString Card::getAnswer() const { return this->answer; }
 
-QString Card::getQuestion() const {
-    return this->question;
-}
-
-QString Card::getAnswer() const {
-    return this->answer;
-}
+// Setters
+void Card::setID(const QString& id) { this->id = id; }
 
 // Database Operations
 
@@ -36,10 +38,10 @@ bool Card::createCard() const {
     do {
         // Generate a unique ID
         id = generateID();
-        std::cout << "Generated ID: " << id << "\n";
+        std::cout << "Card >> Generated ID: " << id << "\n";
 
         sqlQuery.prepare("INSERT INTO Cards (id, question, answer) "
-                         "SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM Cards WHERE id = ?);");
+                         "VALUES (?, ?, ?);");
         sqlQuery.addBindValue(QString::fromStdString(id));
         sqlQuery.addBindValue(this->question);
         sqlQuery.addBindValue(this->answer);

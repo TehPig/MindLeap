@@ -11,7 +11,8 @@ inline auto CREATE_USERS_TABLE = R"(
 inline auto CREATE_DECKS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Decks (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE
+        name TEXT NOT NULL,
+        description TEXT
     );
 )";
 
@@ -27,18 +28,18 @@ inline auto CREATE_CARDS_TABLE = R"(
 
 inline auto CREATE_DECKS_CARDS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS DecksCards (
-        deck_id INTEGER NOT NULL,
-        card_id INTEGER NOT NULL,
+        deck_id TEXT NOT NULL,
+        card_id TEXT NOT NULL,
         PRIMARY KEY(deck_id, card_id),
         FOREIGN KEY(deck_id) REFERENCES Decks(id) ON DELETE CASCADE,
         FOREIGN KEY(card_id) REFERENCES Cards(id) ON DELETE CASCADE
     );
 )";
 
-inline auto CREATE_USER_DECKS_TABLE = R"(
-    CREATE TABLE IF NOT EXISTS UserDecks (
-        user_id INTEGER NOT NULL,
-        deck_id INTEGER NOT NULL,
+inline auto CREATE_USERS_DECKS_TABLE = R"(
+    CREATE TABLE IF NOT EXISTS UsersDecks (
+        user_id TEXT NOT NULL,
+        deck_id TEXT NOT NULL,
         PRIMARY KEY(user_id, deck_id),
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE,
         FOREIGN KEY(deck_id) REFERENCES Decks(id) ON DELETE CASCADE
@@ -49,9 +50,8 @@ inline auto CREATE_USER_DECKS_TABLE = R"(
 
 inline auto CREATE_SAVED_USER_TABLE = R"(
     CREATE TABLE IF NOT EXISTS SavedUser (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER NOT NULL UNIQUE,
-        FOREIGN KEY(user_id) REFERENCES Users(id)
+        id TEXT NOT NULL UNIQUE,
+        FOREIGN KEY(id) REFERENCES Users(id)
     );
 )";
 
@@ -66,7 +66,7 @@ inline auto CREATE_SAVED_USER_TABLE = R"(
 
 inline auto CREATE_USER_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS UserStats (
-        user_id TEXT PRIMARY KEY,
+        id TEXT PRIMARY KEY,
         date DATE NOT NULL,
         cards_seen INTEGER DEFAULT 0,
         pressed_again INTEGER DEFAULT 0,
@@ -75,7 +75,7 @@ inline auto CREATE_USER_STATS_TABLE = R"(
         pressed_easy INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
         times_used INTEGER DEFAULT 0,
-        FOREIGN KEY(user_id) REFERENCES Users(id)
+        FOREIGN KEY(id) REFERENCES Users(id)
     );
 )";
 
@@ -93,22 +93,25 @@ inline auto CREATE_USER_STATS_TABLE = R"(
 
 inline auto CREATE_CARD_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS CardStats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        card_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
         date DATE NOT NULL,
         times_seen INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
         time_to_reappear INTEGER DEFAULT 0,
         last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(card_id) REFERENCES Cards(id) ON DELETE CASCADE,
+        FOREIGN KEY(id) REFERENCES Cards(id) ON DELETE CASCADE,
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
     );
 )";
 
-inline auto CREATE_CARD_STATS_INDEXES = R"(
-    CREATE INDEX IF NOT EXISTS idx_card_stats_card_id ON CardStats(card_id);
+inline auto CARD_STATS_CARD_INDEX = R"(
+    CREATE INDEX IF NOT EXISTS idx_card_stats_card_id ON CardStats(id);
+)";
+inline auto CARD_STATS_USER_INDEX = R"(
     CREATE INDEX IF NOT EXISTS idx_card_stats_user_id ON CardStats(user_id);
+)";
+inline auto CARD_STATS_DATE_INDEX = R"(
     CREATE INDEX IF NOT EXISTS idx_card_stats_date ON CardStats(date);
 )";
 

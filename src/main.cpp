@@ -10,8 +10,7 @@
 int main(int argc, char *argv[]) {
     QApplication app(argc, argv);
 
-    std::cout << "Initializing application..." << std::endl;
-
+    /*
     // Initialize the database instance
     if (Database* db = Database::getInstance("app_data.db")) {
         try {
@@ -25,20 +24,18 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    std::cout << "Database initialized successfully." << std::endl;
-
     // Create some cards and decks for testing purposes
     const Card card("what is this", "a test");
     const Card card2("another question", "answer here");
 
     const std::vector<Card> cards = {card, card2};
-    Deck test("test deck", 1234, cards);
+    Deck test("test deck", cards);
 
     const std::vector<Deck> decks = {test};
-    User user("test user", 1234, decks);
+    User user("n_test user");
 
     // Attempt to create the user in the database
-    if (const bool user_created = user.createUser(); !user_created) {
+    if (const bool user_created = user.create(); !user_created) {
         std::cerr << "Error creating user.\n";
     } else {
         std::cout << "User created successfully.\n";
@@ -61,6 +58,7 @@ int main(int argc, char *argv[]) {
         }
     }
     std::cout << "==========================\n";
+    */
 
     // Create and display the MainWindow
     MainWindow mainWindow;

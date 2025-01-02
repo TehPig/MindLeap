@@ -6,34 +6,35 @@
 
 #include <Backend/Classes/Card.hpp>
 
-class Deck {
+class Deck
+{
     QString name;
-    int id;
+    QString id;
     std::vector<Card> cards;
 
 public:
-    Deck(QString n, int i, const std::vector<Card> &c);
-    Deck(QString n, int i);
+    // Constructors
+    Deck(const QString& name, const std::vector<Card>& c);
+    Deck(const QString& name, const QString& id);
+    Deck(const QString& name_or_id);
 
     // Getters
     QString getName() const;
+    QString getID() const;
 
-    int getID() const;
-
+    // Database Operations
+    // Card
     std::vector<Card> listCards() const;
     int getCardCount() const;
 
-    // Database Operations
+    bool addCard(Card& card) const;
+    bool removeCard(const Card& card) const;
 
-    // Card
-    bool addCard(Card &card);
-    bool removeCard(const Card &card);
+    bool setDescription(const QString& description) const;
 
     // Deck
-    void rename(const QString &newName);
-
-    // Comparison
-    bool operator==(const Deck &deck) const;
+    bool create() const; // Get the deck name from the constructor
+    void rename(const QString& newName);
 };
 
 #endif

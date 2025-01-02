@@ -11,7 +11,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-project(Anki)
+project(MindLeap)
 
 # Find Qt6 components
 find_package(Qt6 REQUIRED COMPONENTS Core Widgets Sql)
@@ -22,20 +22,19 @@ set(INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include") # Header files
 set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")         # Source files
 set(TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")     # Test files
 set(LIBRARIES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Backend/Libraries") # Libraries directory
+set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets") # Assets files
 
-# Specify the .ui files
-set(UI_FILES "${FORMS_DIR}/mainwindow.ui")  # Path to the .ui file
+set(APP_ICON "${ASSETS_DIR}/images/app_icon.ico")
+set(APP_RC "${ASSETS_DIR}/rc/app_icon.rc")
+configure_file(${APP_ICON} ${CMAKE_BINARY_DIR}/images/app_icon.ico COPYONLY)
 
 # Source and header files
 file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp")
 file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.hpp" "${INCLUDE_DIR}/*.h")
+file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 
 # Add the main executable
-add_executable(${PROJECT_NAME}
-        ${SOURCES}
-        ${HEADERS}
-        ${UI_FILES} # Add the .ui files here
-)
+add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS} ${UI} ${APP_RC})
 
 # Set AUTOUIC search paths for .ui files
 set_target_properties(${PROJECT_NAME} PROPERTIES
@@ -49,20 +48,16 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 # Link Qt libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
-        Qt6::Core
-        Qt6::Widgets
-        Qt6::Sql
-)
+target_link_libraries(${PROJECT_NAME} PRIVATE Qt6::Core Qt6::Widgets Qt6::Sql)
 
 # Enable compiler optimizations and link-time optimization (LTO)
-#if(NOT CMAKE_BUILD_TYPE)
-#    set(CMAKE_BUILD_TYPE Release)
-#endif()
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
 
-#set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto")
-#set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
-
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
+#[===[
 # Tests EXE
 file(GLOB_RECURSE BACKEND_SOURCES "${SRC_DIR}/*.cpp")
 file(GLOB_RECURSE BACKEND_HEADERS "${INCLUDE_DIR}/*.hpp")
@@ -99,3 +94,4 @@ target_link_libraries(${PROJECT_NAME}_tests PRIVATE
         Qt6::Core
         Qt6::Sql
 )
+]===]

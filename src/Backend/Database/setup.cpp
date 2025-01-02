@@ -11,7 +11,6 @@ std::unique_ptr<Database> Database::instance;
 std::once_flag Database::initInstanceFlag;
 
 Database::Database(const std::string &path) : db(QSqlDatabase::addDatabase("QSQLITE")), path(path) {
-    std::cerr << "[Database] Constructor called with path: " << path << "\n";
     db.setDatabaseName(QString::fromStdString(path));
 }
 
@@ -21,14 +20,12 @@ Database::~Database() {
 
 Database* Database::getInstance(const std::string &path) {
     std::call_once(initInstanceFlag, [&]() {
-        std::cerr << "[Database] Initializing instance with path: " << path << "\n";
         instance.reset(new Database(path));
     });
     return instance.get();
 }
 
 QSqlDatabase Database::getDB() const {
-    std::cerr << "[Database] getDB called\n";
     return db;
 }
 
@@ -43,7 +40,13 @@ void Database::initialize() {
         !execute(CREATE_DECKS_TABLE) ||
         !execute(CREATE_CARDS_TABLE) ||
         !execute(CREATE_DECKS_CARDS_TABLE) ||
-        !execute(CREATE_SAVED_USER_TABLE)) {
+        !execute(CREATE_USERS_DECKS_TABLE) ||
+        !execute(CREATE_SAVED_USER_TABLE) ||
+        !execute(CREATE_USER_STATS_TABLE) ||
+        !execute(CREATE_CARD_STATS_TABLE) ||
+        !execute(CARD_STATS_CARD_INDEX) ||
+        !execute(CARD_STATS_USER_INDEX) ||
+        !execute(CARD_STATS_DATE_INDEX)) {
         throw std::runtime_error("[Database] Failed to initialize database.");
     }
 
@@ -51,7 +54,6 @@ void Database::initialize() {
 }
 
 bool Database::prepare(const std::string &query, const QVariantList &params) const {
-    std::cerr << "[Database] Preparing query: " << query << "\n";
     QSqlQuery sqlQuery(db);
     if (!sqlQuery.prepare(QString::fromStdString(query))) {
         std::cerr << "[DB] Query preparation failed: " << query << "\n";
@@ -75,7 +77,6 @@ bool Database::prepare(const std::string &query, const QVariantList &params) con
 }
 
 bool Database::execute(const std::string &query) const {
-    std::cerr << "[Database] Executing query: " << query << "\n";
     if (QSqlQuery sqlQuery(db); !sqlQuery.exec(QString::fromStdString(query))) {
         std::cerr << "[DB] Query execution failed: " << query << "\n";
         std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
