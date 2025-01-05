@@ -8,13 +8,11 @@
 
 # TODO List
 ### Priorities
-- [ ] Fix Database relation IDs (decks, cards, deckscards)
 - [ ] Improve the List formatting (main window)
 - [ ] Be able to study the cards (intervals, etc)
 - [ ] Implement stats
 - [ ] Add the rest of the GUI and methods
 - ```
-- [ ] Create deck by only specifying name
 - [ ] Improve GUI design
 - [ ] Add card by specifying question and answer
 - ```
@@ -31,6 +29,8 @@
 
 ### Done
 - [x] Basic User, Deck, Card classes
+- [x] Create deck by only specifying name
+- [x] Fix Database relation IDs (decks, cards, deckscards)
 - [x] Basic Database methods and tables
 - [x] Working basic build (works with CLion and Qt Creator)
 - [x] Support for multiple users
