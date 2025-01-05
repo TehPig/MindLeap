@@ -9,4 +9,4 @@
 
 std::string generateID();
 
-#endif //GENERATEID_HPP
+#endif

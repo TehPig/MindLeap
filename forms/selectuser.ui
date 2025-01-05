@@ -565,7 +565,7 @@ QSlider::sub-page:vertical {
          <x>0</x>
          <y>0</y>
          <width>282</width>
-         <height>475</height>
+         <height>450</height>
         </rect>
        </property>
        <property name="sizePolicy">
@@ -638,6 +638,11 @@ QSlider::sub-page:vertical {
      </widget>
     </item>
    </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusBar">
+   <property name="sizeGripEnabled">
+    <bool>false</bool>
+   </property>
   </widget>
  </widget>
  <resources/>

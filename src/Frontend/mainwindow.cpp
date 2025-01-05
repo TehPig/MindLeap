@@ -1,37 +1,40 @@
 #include <iostream>
-
 #include <QSqlQuery>
 #include <QTableWidget>
 #include <QIcon>
 #include <QTimer>
 #include <QSize>
+#include <QStyle>
+#include <QHBoxLayout>
+#include <QMenu>
+#include <QAction>
+#include <QScrollBar>
+#include <QCursor>
 
 #include <Backend/Classes/User.hpp>
 #include <Backend/Database/setup.hpp>
 
 #include "Frontend/mainwindow.h"
-#include "Frontend/createdeckdialog.h"
+#include "Frontend/confirmationdialog.h"
+#include "Frontend/customdialog.h"
 #include "Frontend/selectuser.h"
 #include <Frontend/hoverabletablewidget.h>
-#include "ui_mainwindow.h"
+#include "forms/ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
-    , ui(new Ui::MainWindow) {
+    , ui(new Ui::MainWindow()) {
     ui->setupUi(this);
 
     ui->deckWidget->setVisible(false);
 
     // Make the table widget hoverable
-    HoverableTableWidget *tableWidget = qobject_cast<HoverableTableWidget*>(ui->tableWidget);
+    auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->tableWidget);
     connect(tableWidget, &HoverableTableWidget::rowHovered, this, &MainWindow::onRowHovered);
     connect(tableWidget, &HoverableTableWidget::rowLeft, this, &MainWindow::onRowLeft);
 
-    ui->tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
-    ui->tableWidget->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
-
     // Once DB is initialized, fetch the current user, load the decks and display them to user
-    Database* db = Database::getInstance("app_data.db");
+    auto db = Database::getInstance("app_data.db");
     if(!db->getDB().isOpen()) db->initialize();
 
     QSqlQuery sqlQuery(db->getDB());
@@ -47,8 +50,7 @@ MainWindow::MainWindow(QWidget *parent)
             std::cout << "Attempting to create default user..." << std::endl;
             // Create Default user
             User user("n_Default");
-            const bool user_created = user.create();
-            if(!user_created){
+            if(!user.create()){
                 ui->statusbar->showMessage("Error: Default User could not be created.");
                 return;
             }
@@ -56,8 +58,7 @@ MainWindow::MainWindow(QWidget *parent)
 
             // Create Default deck
             Deck deck("n_Default");
-            const bool deck_created = deck.create();
-            if(!deck_created){
+            if(!deck.create()){
                 ui->statusbar->showMessage("Error: Default Deck could not be created.");
                 return;
             }
@@ -65,18 +66,15 @@ MainWindow::MainWindow(QWidget *parent)
             setWindowTitle(user.getUsername() + " | MindLeap");
 
             // List the user's decks
-            std::vector<Deck> decks = user.listDecks();
-            populateTableWidget(decks);
-
+            populateTableWidget(user.listDecks());
             return;
         }
     }
     User user(sqlQuery.value("id").toString());
-    if(user.listDecks().size() == 0){
+    if(user.listDecks().empty()){
         // Create Default deck
         Deck deck("n_Default");
-        const bool deck_created = deck.create();
-        if(!deck_created){
+        if(!deck.create()){
             ui->statusbar->showMessage("Error: Default Deck could not be created.");
             return;
         }
@@ -85,8 +83,11 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowTitle(user.getUsername() + " | MindLeap");
 
     // List the user's decks
-    std::vector<Deck> decks = user.listDecks();
-    populateTableWidget(decks);
+    populateTableWidget(user.listDecks());
+
+    QTimer::singleShot(0, this, [this]() {
+        adjustTableColumnWidths();
+    });
 }
 
 MainWindow::~MainWindow() { delete ui; }
@@ -100,60 +101,86 @@ void MainWindow::on_pushButton_clicked() {
         ui->deckWidget->setVisible(false);
         ui->tableWidget->setVisible(true);
     }
-
-    std::cout << "Button clicked" << std::endl;
-    std::cout << "State: " << ui->tableWidget->isVisible() << std::endl;
 }
 
-/*void MainWindow::on_listWidget_currentRowChanged(int currentRow) {
-    // Define the behavior when the current row changes
-    qDebug() << "Current row changed to:" << currentRow;
-}*/
-
-void MainWindow::populateTableWidget(const std::vector<Deck> &decks) {
+void MainWindow::populateTableWidget(const std::vector<Deck>& decks) {
     ui->tableWidget->setRowCount(decks.size());
-    ui->tableWidget->setSelectionMode(QAbstractItemView::NoSelection);
-    ui->tableWidget->viewport()->setAttribute(Qt::WA_Hover, false);
-    ui->tableWidget->viewport()->setFocusPolicy(Qt::NoFocus);
+    QFont font;
+    font.setPointSize(12);
 
     for (int i = 0; i < decks.size(); i++) {
         const Deck &deck = decks[i];
 
         // Set Names
-        QTableWidgetItem *nameItem = new QTableWidgetItem(deck.getName());
+        auto *nameItem = new QTableWidgetItem(deck.getName());
+        nameItem->setTextAlignment(Qt::AlignLeft);
+
+        QFont boldFont = nameItem->font();
+        boldFont.setBold(true);
+        boldFont.setPointSize(11);
+        nameItem->setFont(boldFont); // Apply bold font
+
         nameItem->setData(Qt::UserRole, QVariant(deck.getID()));
         ui->tableWidget->setItem(i, 0, nameItem);
 
-        // Set Total
-        QTableWidgetItem *totalItem = new QTableWidgetItem(QString::number(deck.getCardCount()));
+        // Set New, Learn, Review, and Total values
+        auto *newItem = new QTableWidgetItem("1"); // Example values
+        newItem->setTextAlignment(Qt::AlignCenter);
+        newItem->setFont(font);
+        ui->tableWidget->setItem(i, 1, newItem);
+
+        auto *learnItem = new QTableWidgetItem("2"); // Example values
+        learnItem->setTextAlignment(Qt::AlignCenter);
+        learnItem->setFont(font);
+        ui->tableWidget->setItem(i, 2, learnItem);
+
+        auto *reviewItem = new QTableWidgetItem("3"); // Example values
+        reviewItem->setTextAlignment(Qt::AlignCenter);
+        reviewItem->setFont(font);
+        ui->tableWidget->setItem(i, 3, reviewItem);
+
+        auto *totalItem = new QTableWidgetItem(QString::number(deck.getCardCount())); // Example values
         totalItem->setTextAlignment(Qt::AlignCenter);
+        totalItem->setFont(font);
         ui->tableWidget->setItem(i, 4, totalItem);
 
-        // Settings Button in Container
-        QPushButton *settingsButton = new QPushButton();
+        // Settings Button in Container (Hidden by default)
+        auto *settingsButton = new QPushButton();
         settingsButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_CommandLink));
-        settingsButton->setIconSize(QSize(64, 64));
+        settingsButton->setIconSize(QSize(32, 32));  // Smaller icon size for better fit
         settingsButton->setStyleSheet(R"(QPushButton {
                                             border: none;
                                             background: transparent;
                                             color: #a9b7c6;
                                         }
-                                        QPushButton:hover {
-                                            background: rgba(0, 123, 80, 0.2);
-                                        }
-                                        QPushButton:pressed {
-                                            background: rgba(0, 123, 80, 0.3);
-                                        }
                                         QPushButton:focus {
                                             outline: none;
-                                        })");
+                                        }
+                                    )");
 
-        settingsButton->setFocusPolicy(Qt::NoFocus); // Avoid focus interference
-        // settingsButton->setAttribute(Qt::WA_TransparentForMouseEvents, false); // Ensure mouse events are captured
-        settingsButton->installEventFilter(this);
+        settingsButton->setFocusPolicy(Qt::NoFocus);  // Avoid focus interference
+        settingsButton->setVisible(false);  // Initially hide the button
 
-        QWidget *container = new QWidget();
-        QHBoxLayout *layout = new QHBoxLayout(container);
+        // Connect the settings button to the context menu or other actions
+        connect(settingsButton, &QPushButton::clicked, this, [this, deck, settingsButton]() {
+            // Example of handling the click on the settings button
+            //keepButtonVisible();
+            QTableWidget* tableWidget = ui->tableWidget;
+
+            // Find the row containing this button
+            for (int row = 0; row < tableWidget->rowCount(); ++row) {
+                if (tableWidget->cellWidget(row, 5) == settingsButton->parentWidget()) {
+                    qDebug() << "Settings button clicked for row" << row;
+
+                    showDeckSettings(deck, row);
+                    return;
+                }
+            }
+        });
+
+        // Container for the button in column 5
+        auto *container = new QWidget();
+        auto *layout = new QHBoxLayout(container);
         layout->setContentsMargins(0, 0, 0, 0); // Remove margins
         layout->addWidget(settingsButton);
         layout->setAlignment(Qt::AlignCenter);
@@ -161,118 +188,304 @@ void MainWindow::populateTableWidget(const std::vector<Deck> &decks) {
 
         ui->tableWidget->setCellWidget(i, 5, container);
 
-        // Delay hiding the widget after event processing
-        QTimer::singleShot(0, container, [container]() {
-            container->setVisible(false);
-        });
+        // Install event filter to detect hover and hide/show the button
+        container->installEventFilter(this);
+    }
+}
+
+void MainWindow::adjustTableColumnWidths() {
+    QTableWidget* table = ui->tableWidget;
+
+    // Total available width
+    double totalWidth = static_cast<double>(table->viewport()->width());
+
+    // Subtract the width of the vertical scrollbar if it is visible
+    if (table->verticalScrollBar()->isVisible()) {
+        totalWidth -= static_cast<double>(table->verticalScrollBar()->width());
     }
 
-    // Force refresh
-    //ui->tableWidget->viewport()->update();
-    //ui->tableWidget->repaint();
-}
+    // Proportions for each column except the last one
+    const double proportions[] = {0.45, 0.1, 0.1, 0.1, 0.1};
+    const int columnCount = sizeof(proportions) / sizeof(proportions[0]);
 
-void MainWindow::onRowHovered(int row) {
-    static int lastHoveredRow = -1; // Static to remember previous row
+    // Verify proportions sum to less than 1.0
+    double sum = 0;
+    for (double proportion : proportions) {
+        sum += proportion;
+    }
+    Q_ASSERT(sum < 1.0);
 
-    // Avoid unnecessary updates
-    if (lastHoveredRow == row) return;
+    // Set the column widths for all columns except the last one
+    for (int i = 0; i < columnCount; ++i) {
+        double width = totalWidth * proportions[i];
 
-    // Hide the button from the previously hovered row
-    if (lastHoveredRow != -1) {
-        QWidget* previousWidget = ui->tableWidget->cellWidget(lastHoveredRow, 5);
-        //if (QPushButton* button = qobject_cast<QPushButton*>(previousWidget)) {
-            previousWidget->setVisible(false);
-        //}
+        // Calculate the minimum width needed for the text in the first row
+        if (table->rowCount() > 0) {
+            QTableWidgetItem* firstRowItem = table->item(0, i);
+            if (firstRowItem) {
+                double contentWidth = static_cast<double>(table->fontMetrics().horizontalAdvance(firstRowItem->text())) + 30.0; // Add padding for readability
+                width = qMax(width, contentWidth);  // Use the larger of calculated width or content width
+            }
+        }
+
+        // Calculate the minimum width needed for the header text
+        QString headerText = table->horizontalHeaderItem(i)->text();
+        double headerWidth = static_cast<double>(table->fontMetrics().horizontalAdvance(headerText)) + 30.0; // Add padding for readability
+        width = qMax(width, headerWidth);  // Use the larger of calculated width or header width
+
+        // Apply the adjusted width
+        table->setColumnWidth(i, static_cast<int>(width));
+        qDebug() << "Column" << i << "Width set to:" << width;
+
+        table->horizontalHeader()->setSectionResizeMode(i, QHeaderView::Fixed);
     }
 
-    // Show the button for the newly hovered row
-    if (row != -1) {
-        QWidget* currentWidget = ui->tableWidget->cellWidget(row, 5);
-        //if (QPushButton* button = qobject_cast<QPushButton*>(currentWidget)) {
-            currentWidget->setVisible(true);
-        //}
+    // Set the last column to stretch mode
+    table->horizontalHeader()->setSectionResizeMode(columnCount, QHeaderView::Stretch);
+
+    // Update the viewport to reflect changes
+    table->viewport()->update();
+}
+
+// Override resizeEvent to adjust column widths on resize
+void MainWindow::resizeEvent(QResizeEvent *event) {
+    if(!ui->tableWidget->isVisible()) return;
+    QMainWindow::resizeEvent(event); // Call base class implementation
+    adjustTableColumnWidths();       // Adjust column widths dynamically
+}
+
+void MainWindow::setButtonVisibility(int row, bool visible) {
+    auto *container = ui->tableWidget->cellWidget(row, 5);
+    if (container && !ui->tableWidget->getContextMenuActive()) {
+        container->findChild<QPushButton *>()->setVisible(visible);
     }
-
-    lastHoveredRow = row; // Update last hovered row
 }
 
-void MainWindow::onRowLeft(int row) {
-    QWidget* widget = ui->tableWidget->cellWidget(row, 5);
-    //if (QPushButton* button = qobject_cast<QPushButton*>(widget)) {
-        widget->setVisible(false);
-    //}
+// Context menu function that opens on settings button click
+void MainWindow::showDeckSettings(const Deck& deck, const int row) {
+    auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->tableWidget);
+    tableWidget->setContextMenuActive(true);
+
+    QMenu contextMenu(this);
+
+    auto *action1 = new QAction("Rename", this);
+    connect(action1, &QAction::triggered, this, [this, tableWidget, row]() {
+            QTableWidgetItem* nameItem = tableWidget->item(row, 0);
+            if (nameItem) {
+                // Retrieve the stored ID from the UserRole data
+                QVariant idVariant = nameItem->data(Qt::UserRole);
+                if (idVariant.isValid()) {
+                    QString deckID = idVariant.toString();
+                    auto *container = tableWidget->cellWidget(row, 5);
+                    if (container) {
+                        container->findChild<QPushButton *>()->setVisible(false);
+                    }
+
+                    // Set context menu inactive
+                    tableWidget->setContextMenuActive(false);
+
+                    // Create the confirmation dialog
+                    CustomDialog* renameDialog = new CustomDialog(this);
+                    renameDialog->setWindowTitleText("Rename Deck");
+                    renameDialog->setMessageText("Enter new Deck name:");
+                    if (renameDialog->exec() == QDialog::Accepted) {
+                        QString name = renameDialog->getEnteredText();
+                        if(name.isEmpty()) {
+                            this->statusBar()->showMessage("Error: Deck name cannot be empty");
+                            return;
+                        }
+
+                        Deck deck(deckID);
+                        const bool status = deck.rename(name);
+                        if(!status) {
+                            this->statusBar()->showMessage("Error: Could not rename Deck.");
+                            return;
+                        }
+
+                        nameItem->setText(name);
+                    }
+                }
+            }
+    });
+    contextMenu.addAction(action1);
+
+    auto *action2 = new QAction("Delete", this);
+    connect(action2, &QAction::triggered, this, [this, tableWidget, row]() {
+            QTableWidgetItem* nameItem = tableWidget->item(row, 0);
+            if (nameItem) {
+                QVariant idVariant = nameItem->data(Qt::UserRole);
+                if (idVariant.isValid()) {
+                    QString deckID = idVariant.toString();
+
+                    auto* container = tableWidget->cellWidget(row, 5);
+                    if (container) {
+                        container->findChild<QPushButton*>()->setVisible(false);
+                    }
+
+                    tableWidget->setContextMenuActive(false);
+
+                    ConfirmationDialog* deleteDialog = new ConfirmationDialog("delete this deck", this);
+                    if (deleteDialog->exec() == QDialog::Accepted) {
+                        Deck deck(deckID);
+                        if (!deck._delete()) {
+                            this->statusBar()->showMessage("Error: Could not delete Deck.");
+                            return;
+                        }
+                        tableWidget->removeRow(row);  // Use dynamically retrieved row
+                    }
+                }
+            }
+    });
+    contextMenu.addAction(action2);
+
+    // Connect the aboutToHide signal to reset the flag
+    connect(&contextMenu, &QMenu::aboutToHide, this, [this, tableWidget, row]() {
+        if (row != -1) {
+            auto *container = tableWidget->cellWidget(row, 5);
+            if (container) {
+                container->findChild<QPushButton *>()->setVisible(false);
+            }
+        }
+        tableWidget->setContextMenuActive(false);
+    });
+
+    // Show the context menu
+    contextMenu.exec(QCursor::pos());
 }
 
-bool MainWindow::eventFilter(QObject *obj, QEvent *event) {
-    if (event->type() == QEvent::MouseButtonPress) {
-        QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-        QPushButton *button = qobject_cast<QPushButton *>(obj);
+void MainWindow::onRowHovered(int row) { setButtonVisibility(row, true); }
 
-        if (button && mouseEvent->button() == Qt::LeftButton) {
-            showDeckSettings(button); // Call your context menu function
-            return true; // Event handled
-        }
-    }
-    return QMainWindow::eventFilter(obj, event);
-}
+void MainWindow::onRowLeft(int row) { setButtonVisibility(row, false); }
 
-void MainWindow::showDeckSettings(QPushButton *button) {
-    QMenu menu;
-    menu.addAction("Option 1", this, []() { qDebug() << "Option 1 selected"; });
-    menu.addAction("Option 2", this, []() { qDebug() << "Option 2 selected"; });
-
-    menu.setStyleSheet(R"(
-        QMenu {
-            background-color: #1e1d23;
-            color: #a9b7c6;
-            border: 1px solid #444;
-        }
-        QMenu::item {
-            padding: 4px 8px;
-        }
-        QMenu::item:selected {
-            background-color: #007b50;
-            color: #FFFFFF;
-        }
-    )");
-
-    QPoint globalPos = button->mapToGlobal(QPoint(0, button->height()));
-    menu.exec(globalPos);
-
-    // Force button to repaint after menu closes
-    button->update();
-}
-
-// void MainWindow::set_active_widget(const std::string widget){
-//     if(widget == "list" && ui->listWidget->isHidden()) ui->listWidget->show();
-//     if(widget == "card_info" && ui->widget_2->isHidden()) ui->widget_2->show();
-
-//     if(widget == "list"){
-//         this->
-// }
-
+// Create Deck dialog
 void MainWindow::on_pushButton_5_clicked() {
-    CreateDeckDialog* dialog = new CreateDeckDialog(this);
-    dialog->exec();
+    CustomDialog *dialog = new CustomDialog(this);
+    dialog->setWindowTitleText("Create Deck");
+    dialog->setMessageText("Enter Deck name:");
 
-    dialog->setAttribute(Qt::WA_DeleteOnClose); // Delete the dialog on close
+    if (dialog->exec() == QDialog::Accepted) {
+        QString deckName = dialog->getEnteredText(); // Now safe to get entered text
+
+        Deck deck("n_" + deckName);
+        const bool status = deck.create();
+        if(!status){
+            this->statusBar()->showMessage("Error: Deck was not created.");
+            delete dialog;
+            return;
+        }
+
+        QTableWidget* list = this->get_tableWidget();
+        int row = list->rowCount();
+        list->insertRow(row); // Insert a new row
+
+        // Set Names
+        auto *nameItem = new QTableWidgetItem(deck.getName());
+
+        QFont boldFont = nameItem->font();
+        boldFont.setBold(true);
+        nameItem->setFont(boldFont); // Apply bold font
+
+        nameItem->setData(Qt::UserRole, QVariant(deck.getID()));
+        ui->tableWidget->setItem(row, 0, nameItem);
+
+        // Set New, Learn, Review, and Total values
+        auto *newItem = new QTableWidgetItem("0"); // Example values
+        newItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableWidget->setItem(row, 1, newItem);
+
+        auto *learnItem = new QTableWidgetItem("0"); // Example values
+        learnItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableWidget->setItem(row, 2, learnItem);
+
+        auto *reviewItem = new QTableWidgetItem("0"); // Example values
+        reviewItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableWidget->setItem(row, 3, reviewItem);
+
+        auto *totalItem = new QTableWidgetItem(QString::number(deck.getCardCount())); // Example values
+        totalItem->setTextAlignment(Qt::AlignCenter);
+        ui->tableWidget->setItem(row, 4, totalItem);
+
+        // Settings Button in Container (Hidden by default)
+        auto *settingsButton = new QPushButton();
+        settingsButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_CommandLink));
+        settingsButton->setIconSize(QSize(32, 32));  // Smaller icon size for better fit
+        settingsButton->setStyleSheet(R"(QPushButton {
+                                            border: none;
+                                            background: transparent;
+                                            color: #a9b7c6;
+                                        }
+                                        QPushButton:focus {
+                                            outline: none;
+                                        }
+                                    )");
+
+        settingsButton->setFocusPolicy(Qt::NoFocus);  // Avoid focus interference
+        settingsButton->setVisible(false);  // Initially hide the button
+
+        // Connect the settings button to the context menu or other actions
+        connect(settingsButton, &QPushButton::clicked, this, [this, deck, row]() {
+            showDeckSettings(deck, row);
+        });
+
+        // Container for the button in column 5
+        auto *container = new QWidget();
+        auto *layout = new QHBoxLayout(container);
+        layout->setContentsMargins(0, 0, 0, 0); // Remove margins
+        layout->addWidget(settingsButton);
+        layout->setAlignment(Qt::AlignCenter);
+        container->setLayout(layout);
+
+        list->setCellWidget(row, 5, container);
+
+        // Install event filter to detect hover and hide/show the button
+        container->installEventFilter(this);
+
+        delete dialog;
+        list->viewport()->update();
+
+        list->setVisible(false);
+        ui->widget_2->setVisible(true);
+
+        // Ensure the QLabel widgets are properly initialized
+        if (ui->Name && ui->CardCount) {
+            // Set the text color and background color
+            ui->Name->setStyleSheet("color: red; background-color: white;");
+            ui->CardCount->setStyleSheet("color: red; background-color: white;");
+
+            // Ensure the QLabel widgets are visible
+            ui->Name->setVisible(true);
+            ui->CardCount->setVisible(true);
+
+            // Set the text
+            ui->Name->setText(deck.getName());
+            ui->CardCount->setText("Total Cards: " + QString::number(deck.getCardCount()));
+            ui->Name->setStyleSheet("color: red; background-color: white;");
+            ui->CardCount->setStyleSheet("color: red; background-color: white;");
+
+            ui->Name->adjustSize();
+            ui->CardCount->adjustSize();
+        } else {
+            qDebug() << "Error: QLabel widgets are not properly initialized.";
+        }
+    }
 }
 
+// Debug button
 void MainWindow::on_pushButton_6_clicked() {
     ui->deckWidget->isHidden() ? ui->deckWidget->show() : ui->deckWidget->hide();
 }
 
 // Action Buttons
+// Select User Menu
 void MainWindow::on_actionUsers_triggered() {
     this->close();
 
-    selectuser *selectUser = new selectuser();
+    auto *selectUser = new selectuser();
     selectUser->show();
-
     selectUser->setAttribute(Qt::WA_DeleteOnClose); // Delete select user window on close
 }
 
-void MainWindow::on_actionFullscreen_triggered() { this->isFullScreen() ? this->showNormal() : this->showFullScreen() ; }
-
-
+// Toggle Fullscreen
+void MainWindow::on_actionFullscreen_triggered() {
+    this->isFullScreen() ? this->showNormal() : this->showFullScreen();
+}

@@ -79,10 +79,25 @@ inline auto CREATE_USER_STATS_TABLE = R"(
     );
 )";
 
+// Deck Stats
+inline auto CREATE_DECK_STATS_TABLE = R"(
+    CREATE TABLE IF NOT EXISTS DeckStats (
+        id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        total_cards INTEGER DEFAULT 0,
+        cards_seen INTEGER DEFAULT 0,
+        time_spent_seconds INTEGER DEFAULT 0,
+        average_interval INTEGER DEFAULT 0,
+        PRIMARY KEY(user_id, id),
+        FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE,
+        FOREIGN KEY(id) REFERENCES Decks(id) ON DELETE CASCADE
+    );
+)";
+
 // Card Stats include
 // Number of times seen
 // Date and times seen will be used to calculate times appeared in a day
-// Time to reappear
+// Time to reappear (still working on this)
 // - first button (again) will have a multiplier of 0.0 if pressed (resets interval)
 // - second button (hard) will have a multiplier of 1.2 if pressed (increases interval by 20%)
 // - third button (good) will have a multiplier of 1.5 if pressed (increases interval by 50%)
@@ -115,4 +130,4 @@ inline auto CARD_STATS_DATE_INDEX = R"(
     CREATE INDEX IF NOT EXISTS idx_card_stats_date ON CardStats(date);
 )";
 
-#endif // QUERIES_HPP
+#endif

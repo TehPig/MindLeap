@@ -1,82 +1,50 @@
 #include <utility>
 #include <vector>
-#include <iostream>
-#include <algorithm>
 
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QDebug>
+#include <QString>
 
 #include "Backend/Classes/Deck.hpp"
 #include "Backend/Database/setup.hpp"
 #include "Backend/Utilities/generateID.hpp"
 
-// Constructor
+// Constructors
 Deck::Deck(const QString& name, const std::vector<Card>& c)
     : name(name), cards(c) {}
 Deck::Deck(const QString& name, const QString& id) : name(name), id(id) {}
 Deck::Deck(const QString& name_or_id) {
-    if (name_or_id.startsWith("n_")) this->name = name_or_id;
-    else this->id = name_or_id;
+    if (name_or_id.startsWith("n_")) this->name = name_or_id.trimmed();
+    else this->id = name_or_id.trimmed();
 }
 
 // Getters
-QString Deck::getName() const { return this->name; }
+// Get Deck name
+QString Deck::getName() const {
+    return this->name.startsWith("n_") ? this->name.mid(2) : this->name;
+}
 
+// Get Deck ID
 QString Deck::getID() const { return this->id; }
 
+// Setters
+
+
 // Database Operations
-std::vector<Card> Deck::listCards() const {
-    std::vector<Card> cards;
+// Create Deck
+bool Deck::create() {
     const Database* db = Database::getInstance();
-    QSqlQuery sqlQuery(db->getDB());
-
-    sqlQuery.prepare("SELECT id, question, answer FROM Cards WHERE deck_id = ?");
-    sqlQuery.addBindValue(this->id);
-
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Failed to execute query: " << sqlQuery.lastError().text().toStdString() << "\n";
-        return cards;
-    }
-
-    while (sqlQuery.next()) {
-        QString id = sqlQuery.value(0).toString();
-        QString question = sqlQuery.value(1).toString();
-        QString answer = sqlQuery.value(2).toString();
-
-        cards.emplace_back(id, question, answer);
-    }
-
-    return cards;
-}
-
-int Deck::getCardCount() const {
-    const Database* db = Database::getInstance();
-    QSqlQuery sqlQuery(db->getDB());
-
-    sqlQuery.prepare("SELECT COUNT(*) FROM DecksCards WHERE deck_id = ?");
-    sqlQuery.addBindValue(this->id);
-
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Failed to execute query: " << sqlQuery.lastError().text().toStdString() << "\n";
-        return -1; // If query fails
-    }
-
-    if (!sqlQuery.next()) return 0; // Return 0 if no cards are stored
-    return sqlQuery.value(0).toInt();
-}
-
-bool Deck::create() const {
-    const Database* db = Database::getInstance();
-    QSqlQuery sqlQuery(db->getDB());
+    QSqlQuery query(db->getDB());
 
     // Retrieve saved user ID
-    sqlQuery.prepare("SELECT id FROM SavedUser LIMIT 1");
-    if (!sqlQuery.exec() || !sqlQuery.next()) {
-        std::cerr << "[DB] Could not retrieve user ID - create Deck: " << sqlQuery.lastError().text().toStdString() << "\n";
+    query.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
+    if (!query.exec() || !query.next()) {
+        qDebug() << "[DB] Could not retrieve user ID - create Deck: " << query.lastError().text();
         return false;
     }
 
-    const QString userId = sqlQuery.value(0).toString();
+    const QString userId = query.value("id").toString();
 
     // Generate a unique ID
     QString deckId;
@@ -84,151 +52,148 @@ bool Deck::create() const {
 
     do {
         deckId = QString::fromStdString(generateID());
-        sqlQuery.prepare("SELECT COUNT(*) FROM Decks WHERE id = ?");
-        sqlQuery.addBindValue(deckId);
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM Decks WHERE id = ?"));
+        query.addBindValue(deckId);
 
-        if (!sqlQuery.exec()) {
-            std::cerr << "[DB] Could not check for existing Deck ID: " << sqlQuery.lastError().text().toStdString() << "\n";
+        if (!query.exec()) {
+            qDebug() << "[DB] Could not check for existing Deck ID: " << query.lastError().text();
             return false;
         }
 
-        sqlQuery.next();
-        idExists = sqlQuery.value(0).toInt() > 0;
+        query.next();
+        idExists = query.value(0).toInt() > 0;
     } while (idExists);
 
     // Insert the new Deck into the Decks table
-    sqlQuery.prepare("INSERT INTO Decks (id, name) VALUES (?, ?)");
-    sqlQuery.addBindValue(deckId);
-    sqlQuery.addBindValue(this->name.mid(2));
+    query.prepare(QStringLiteral("INSERT INTO Decks (id, name) VALUES (?, ?)"));
+    query.addBindValue(deckId);
+    query.addBindValue(this->name.mid(2));
 
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Could not insert Deck into Decks table: " << sqlQuery.lastError().text().toStdString() << "\n";
+    if (!query.exec()) {
+        qDebug() << "[DB] Could not insert Deck into Decks table: " << query.lastError().text();
         return false;
     }
 
     // Link the Deck to the User in UsersDecks table
-    sqlQuery.prepare("INSERT INTO UsersDecks (user_id, deck_id) VALUES (?, ?)");
-    sqlQuery.addBindValue(userId);
-    sqlQuery.addBindValue(deckId);
+    query.prepare(QStringLiteral("INSERT INTO UsersDecks (user_id, deck_id) VALUES (?, ?)"));
+    query.addBindValue(userId);
+    query.addBindValue(deckId);
 
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Could not link Deck to User in UsersDecks table: " << sqlQuery.lastError().text().toStdString() << "\n";
+    if (!query.exec()) {
+        qDebug() << "[DB] Could not link Deck to User in UsersDecks table: " << query.lastError().text();
         return false;
     }
 
+    this->id = deckId;
     return true;
 }
 
+// Set Deck description
 bool Deck::setDescription(const QString& description) const {
+    if (description.trimmed().isEmpty()) {
+        qDebug() << "[DB] Deck Set Description - Missing description.";
+        return false;
+    }
+
     const Database* db = Database::getInstance();
-    QSqlQuery sqlQuery(db->getDB());
+    QSqlQuery query(db->getDB());
 
-    sqlQuery.prepare("UPDATE Decks SET description = ? WHERE id = ?");
-    sqlQuery.addBindValue(description);
-    sqlQuery.addBindValue(this->id);
+    query.prepare(QStringLiteral("UPDATE Decks SET description = ? WHERE id = ?"));
+    query.addBindValue(description);
+    query.addBindValue(this->id);
 
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Could not update Deck description: " << sqlQuery.lastError().text().toStdString() << "\n";
+    if (!query.exec()) {
+        qDebug() << "[DB] Could not update Deck description: " << query.lastError().text();
         return false;
     }
 
     return true;
 }
 
-// Add a card to the deck
-// bool Deck::addCard(Card &card) {
-//     const Database *db = Database::getInstance();
-//
-//     // Insert the card into the Cards table
-//     QSqlQuery sqlQuery(db->getDB());
-//     sqlQuery.prepare("INSERT INTO Cards (id, question, answer) VALUES (?, ?, ?);");
-//     sqlQuery.addBindValue(this->id);
-//     sqlQuery.addBindValue(card.getQuestion());
-//     sqlQuery.addBindValue(card.getAnswer());
-//
-//     if (!sqlQuery.exec()) {
-//         std::cerr << "[DB] Failed to execute query: "
-//                   << sqlQuery.lastError().text().toStdString() << "\n";
-//         return false;
-//     }
-//
-//     // Insert the deck_id and card_id into the deckscards table
-//     const QString query = "INSERT INTO deckscards (deck_id, card_id) VALUES (?, ?);";
-//     if (!sqlQuery.prepare(query)) {
-//         std::cerr << "[DB] Failed to prepare query: "
-//                   << sqlQuery.lastError().text().toStdString() << "\n";
-//         return false;
-//     }
-//
-//     sqlQuery.addBindValue(this->id);
-//     //sqlQuery.addBindValue(cardID);
-//
-//     if (!sqlQuery.exec()) {
-//         std::cerr << "[DB] Failed to execute query: "
-//                   << sqlQuery.lastError().text().toStdString() << "\n";
-//         return false;
-//     }
-//
-//     // Add the card to the deck's card list
-//     cards.push_back(card);
-//     return true;
-// }
-
-// Remove a card from the deck
-// bool Deck::removeCard(const Card &card) {
-//     const Database *db = Database::getInstance();
-//     const QString query = "DELETE FROM deckscards WHERE card_id = ? AND deck_id = ?;";
-//
-//     QSqlQuery sqlQuery(db->getDB());
-//     if (!sqlQuery.prepare(query)) {
-//         std::cerr << "[DB] Failed to prepare query: "
-//                   << sqlQuery.lastError().text().toStdString() << "\n";
-//         return false;
-//     }
-//
-//     //sqlQuery.addBindValue(card.getID());
-//     //sqlQuery.addBindValue(this->id);
-//
-//     if (!sqlQuery.exec()) {
-//         std::cerr << "[DB] Failed to execute query: "
-//                   << sqlQuery.lastError().text().toStdString() << "\n";
-//         return false;
-//     }
-//
-//     const auto it = std::find_if(this->cards.begin(), this->cards.end(),
-//                                  [&card](const Card &c) { return c == card; });
-//     if (it == this->cards.end()) {
-//         std::cerr << "[Deck] Card not found. Remove failed.\n";
-//         return false;
-//     }
-//
-//     this->cards.erase(it);
-//     return true;
-// }
-
-// Rename the deck
-void Deck::rename(const QString& newName) {
-    const Database* db = Database::getInstance();
-    const QString query = "UPDATE Decks SET name = ? WHERE id = ?;";
-
-    QSqlQuery sqlQuery(db->getDB());
-    if (!sqlQuery.prepare(query))
-    {
-        std::cerr << "[DB] Failed to prepare query: "
-            << sqlQuery.lastError().text().toStdString() << "\n";
-        return;
+// Rename Deck
+bool Deck::rename(const QString& newName) {
+    if (newName.trimmed().isEmpty()) {
+        qDebug() << "[DB] Deck Rename - Invalid name specified.";
+        return false;
     }
 
-    sqlQuery.addBindValue(newName);
-    sqlQuery.addBindValue(this->id);
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
 
-    if (!sqlQuery.exec())
-    {
-        std::cerr << "[DB] Failed to execute query: "
-            << sqlQuery.lastError().text().toStdString() << "\n";
-        return;
+    query.prepare(QStringLiteral("UPDATE Decks SET name = ? WHERE id = ?;"));
+    query.addBindValue(newName);
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
+        return false;
     }
 
     this->name = newName;
-    std::cout << "[Deck] Renamed deck to " << this->name.toStdString() << "\n";
+    qDebug() << "[Deck] Renamed deck to " << this->name;
+
+    return true;
+}
+
+// Delete Deck
+bool Deck::_delete() const {
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] Deck Delete - Missing ID.";
+        return false;
+    }
+
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare("DELETE FROM Decks WHERE id = ?;");
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to delete deck: " << query.lastError().text();
+        return false;
+    }
+
+    return true; // DecksCards and DeckStats are automatically cleaned up by cascading rules.
+}
+
+// List all Deck cards
+std::vector<Card> Deck::listCards() const {
+    std::vector<Card> cards;
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("SELECT id, question, answer FROM Cards WHERE deck_id = ?"));
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
+        return cards;
+    }
+
+    while (query.next()) {
+        cards.emplace_back(query.value("id").toString(), query.value("question").toString(), query.value("answer").toString());
+    }
+
+    return cards;
+}
+
+// Get card count in the deck
+int Deck::getCardCount() const {
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("SELECT COUNT(*) FROM DecksCards WHERE deck_id = ?"));
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
+        return -1;
+    }
+
+    return query.next() ? query.value(0).toInt() : 0;
+}
+
+// Get Deck stats
+void Deck::getStats() const {
+    qDebug() << "Deck Stats";
 }

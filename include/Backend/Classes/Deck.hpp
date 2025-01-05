@@ -4,13 +4,16 @@
 #include <vector>
 #include <QString>
 
-#include <Backend/Classes/Card.hpp>
+#include "Backend/Classes/Base/Entity.hpp"
+#include "Backend/Classes/Card.hpp"
+#include "Backend/Classes/Stats/DeckStats.hpp"
 
-class Deck
-{
+class Deck final : public Entity {
+private:
     QString name;
     QString id;
     std::vector<Card> cards;
+    //DeckStats stats;
 
 public:
     // Constructors
@@ -23,18 +26,18 @@ public:
     QString getID() const;
 
     // Database Operations
-    // Card
+    // Deck
+    bool create() override;
+    bool _delete() const override;
+
+    bool rename(const QString& newName);
+    bool setDescription(const QString& description) const;
+
     std::vector<Card> listCards() const;
     int getCardCount() const;
 
-    bool addCard(Card& card) const;
-    bool removeCard(const Card& card) const;
-
-    bool setDescription(const QString& description) const;
-
-    // Deck
-    bool create() const; // Get the deck name from the constructor
-    void rename(const QString& newName);
+    // Stats
+    void getStats() const override;
 };
 
 #endif

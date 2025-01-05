@@ -1,7 +1,6 @@
-#include <iostream>
-
 #include <QSqlQuery>
 #include <QSqlError>
+#include <QDebug>
 
 #include "Backend/Database/setup.hpp"
 #include "Backend/Database/queries.hpp"
@@ -30,58 +29,35 @@ QSqlDatabase Database::getDB() const {
 }
 
 void Database::initialize() {
-    std::cerr << "[Database] Initializing database\n";
+    qDebug() << "[DB] Initializing database";
     if (!db.open()) {
-        throw std::runtime_error("[Database] Could not open database: " + db.lastError().text().toStdString());
+        qCritical() << "[DB] Could not open database: " + db.lastError().text();
+        std::exit(EXIT_FAILURE);
     }
 
     // Create tables
-    if (!execute(CREATE_USERS_TABLE) ||
-        !execute(CREATE_DECKS_TABLE) ||
-        !execute(CREATE_CARDS_TABLE) ||
-        !execute(CREATE_DECKS_CARDS_TABLE) ||
-        !execute(CREATE_USERS_DECKS_TABLE) ||
-        !execute(CREATE_SAVED_USER_TABLE) ||
-        !execute(CREATE_USER_STATS_TABLE) ||
-        !execute(CREATE_CARD_STATS_TABLE) ||
-        !execute(CARD_STATS_CARD_INDEX) ||
-        !execute(CARD_STATS_USER_INDEX) ||
-        !execute(CARD_STATS_DATE_INDEX)) {
-        throw std::runtime_error("[Database] Failed to initialize database.");
+    const std::vector<std::string> queries = {
+        CREATE_USERS_TABLE,
+        CREATE_DECKS_TABLE,
+        CREATE_CARDS_TABLE,
+        CREATE_DECKS_CARDS_TABLE,
+        CREATE_USERS_DECKS_TABLE,
+        CREATE_SAVED_USER_TABLE,
+        CREATE_USER_STATS_TABLE,
+        CREATE_DECK_STATS_TABLE,
+        CREATE_CARD_STATS_TABLE,
+        CARD_STATS_CARD_INDEX,
+        CARD_STATS_USER_INDEX,
+        CARD_STATS_DATE_INDEX
+    };
+
+    for (const auto& query : queries) {
+        QSqlQuery q;
+        if (!q.exec(QString::fromStdString(query))) {
+            qCritical() << "[DB] Failed to initialize database: " + q.lastError().text();
+            std::exit(EXIT_FAILURE);
+        }
     }
 
-    std::cerr << "[Database] Initialized successfully!\n";
-}
-
-bool Database::prepare(const std::string &query, const QVariantList &params) const {
-    QSqlQuery sqlQuery(db);
-    if (!sqlQuery.prepare(QString::fromStdString(query))) {
-        std::cerr << "[DB] Query preparation failed: " << query << "\n";
-        std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    // Bind parameters
-    for (const auto &param : params) {
-        sqlQuery.addBindValue(param);
-    }
-
-    // Execute the query
-    if (!sqlQuery.exec()) {
-        std::cerr << "[DB] Query execution failed: " << query << "\n";
-        std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    return true;
-}
-
-bool Database::execute(const std::string &query) const {
-    if (QSqlQuery sqlQuery(db); !sqlQuery.exec(QString::fromStdString(query))) {
-        std::cerr << "[DB] Query execution failed: " << query << "\n";
-        std::cerr << "[DB] Error: " << sqlQuery.lastError().text().toStdString() << "\n";
-        return false;
-    }
-
-    return true;
+    qDebug() << "[DB] Initialized successfully!";
 }

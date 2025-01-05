@@ -1,12 +1,12 @@
 #include "Frontend/selectuser.h"
-#include "Frontend/createuserdialog.h"
-#include <Frontend/renameuserdialog.h>
+#include "Frontend/customdialog.h"
 #include "Frontend/mainwindow.h"
-#include "ui_selectuser.h"
+#include "forms/ui_selectuser.h"
 
 #include <QApplication>
 #include <QListWidget>
 #include <QListWidgetItem>
+#include <QStatusBar>
 
 selectuser::selectuser(QWidget *parent)
     : QMainWindow(parent)
@@ -55,10 +55,26 @@ void selectuser::on_Open_clicked() {
 }
 
 void selectuser::on_Create_clicked() {
-    CreateUserDialog* dialog = new CreateUserDialog(this);
-    dialog->exec(); // Open the dialog and pause execution
+    CustomDialog* dialog = new CustomDialog(this);
+    dialog->setWindowTitleText("Create User");
+    dialog->setMessageText("Specify username:");
 
-    dialog->setAttribute(Qt::WA_DeleteOnClose); // Delete the dialog on close
+    if(dialog->exec() == QDialog::Accepted){
+        User user("n_" + dialog->getEnteredText());
+
+        const bool status = user.create();
+        if(!status){
+            this->statusBar()->showMessage("Error: User was not created.");
+            delete dialog;
+            return;
+        }
+
+        QListWidget* list = this->get_listWidget();
+        QListWidgetItem* item = new QListWidgetItem(dialog->getEnteredText().trimmed());
+
+        item->setData(Qt::UserRole, QVariant(user.getID()));
+        list->addItem(item);
+    }
 }
 
 void selectuser::on_Delete_clicked() {
@@ -80,7 +96,24 @@ void selectuser::on_Rename_clicked() {
 
     QString id = selectedItem->data(Qt::UserRole).toString(); // Get the ID
 
-    RenameUserDialog *dialog = new RenameUserDialog(id, this);
-    dialog->exec(); // Open the dialog and pause execution
+    CustomDialog* dialog = new CustomDialog(this);
+    dialog->setWindowTitleText("Rename User");
+    dialog->setMessageText("Specify new username:");
+
+    if(dialog->exec() == QDialog::Accepted){
+        User user(id);
+
+        const bool status = user.rename(dialog->getEnteredText());
+        if(!status){
+            this->statusBar()->showMessage("Error: User was not renamed.");
+            delete dialog;
+            return;
+        }
+
+        QListWidget* list = this->get_listWidget();
+        QListWidgetItem *selectedItem = list->currentItem();
+
+        selectedItem->setText(dialog->getEnteredText().trimmed());
+    }
 }
 

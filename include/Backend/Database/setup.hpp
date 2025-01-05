@@ -14,16 +14,13 @@ private:
     QSqlDatabase db;
     std::string path;
 
-    explicit Database(const std::string &path);
-
 public:
+    Database(const std::string &path);
     ~Database();
 
     static Database* getInstance(const std::string &path = "app_data.db");
     QSqlDatabase getDB() const;
     void initialize();
-    bool prepare(const std::string &query, const QVariantList &params) const;
-    bool execute(const std::string &query) const;
 };
 
 #endif // SETUP_HPP

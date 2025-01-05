@@ -8,12 +8,16 @@
 #include <QString>
 #include <vector>
 
-#include <Backend/Classes/Deck.hpp>
+#include "Backend/Classes/Base/Entity.hpp"
+#include "Backend/Classes/Deck.hpp"
+#include "Backend/Classes/Stats/UserStats.hpp"
 
-class User {
+class User final : public Entity {
+private:
     QString username;
     QString id;
     std::vector<Deck> decks;
+    //UserStats stats;
 
 public:
     // Constructors
@@ -29,20 +33,20 @@ public:
 
     // Setters
 
+
     // Database Operations
     // User
-    bool create();
-    bool select();
+    bool create() override;
+    bool _delete() const override;
+
+    bool select() const;
     bool rename(const QString& username);
-    bool _delete() const;
 
     static std::vector<User> listUsers();
+    std::vector<Deck> listDecks() const;
 
-    // Deck
-    void addDeck(const Deck &deck);
-    bool removeDeck(const Deck &deck);
-
-    std::vector<Deck> listDecks();
+    // Stats
+    void getStats() const override;
 };
 
 #endif

@@ -1,55 +1,52 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include "Backend/Classes/Deck.hpp"
-#include "Frontend/hoverabletablewidget.h"
-
-#include <vector>
-
 #include <QMainWindow>
-#include <QListWidget>
-#include <QTableWidget>
-#include <QMouseEvent>
-#include <QPushButton>
-#include <QTableWidgetItem>
+#include <QWidget>
+#include <QResizeEvent>
+#include <vector>
+#include "Backend/Classes/Deck.hpp"
 
-namespace Ui {
-    class MainWindow;
-}
+QT_BEGIN_NAMESPACE
+namespace Ui { class MainWindow; }
+QT_END_NAMESPACE
 
-class MainWindow : public QMainWindow
-{
+class HoverableTableWidget;
+
+class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
-    public:
-        void set_active_widget(std::string widget);
-        HoverableTableWidget* get_tableWidget();
+    HoverableTableWidget* get_tableWidget();
 
-    private slots:
-        //void on_listWidget_currentRowChanged(int currentRow);
-        void onRowHovered(int row);
-        void onRowLeft(int row);
-        //void onTableItemClicked(QTableWidgetItem *item);
-        void showDeckSettings(QPushButton *button);
+private slots:
+    void on_pushButton_clicked();
+    void on_pushButton_5_clicked();
+    void on_pushButton_6_clicked();
+    void on_actionUsers_triggered();
+    void on_actionFullscreen_triggered();
+    void onRowHovered(int row);
+    void onRowLeft(int row);
 
-        bool eventFilter(QObject *obj, QEvent *event);
+protected:
+    void resizeEvent(QResizeEvent *event) override; // Override resizeEvent
 
-        void on_pushButton_clicked();
-        void on_pushButton_5_clicked();
-        void on_pushButton_6_clicked();
+private:
+    void populateTableWidget(const std::vector<Deck>& decks);
+    //void setupTableWidget();
+    void showDeckSettings(const Deck& deck, const int row);
 
-        // Action Buttons
-        void on_actionUsers_triggered();
-        void on_actionFullscreen_triggered();
+    void setButtonVisibility(int row, bool visible);
 
-    private:
-        Ui::MainWindow *ui;
-        void populateTableWidget(const std::vector<Deck> &decks);
-        QList<QPushButton*> settingsButtons;
+    //void resizeEvent(QResizeEvent *event) override;
+
+    Ui::MainWindow *ui; // Use raw pointer instead of unique_ptr
+    bool isContextMenuActive = false;
+
+    void adjustTableColumnWidths(); // Function to adjust column widths
 };
 
 #endif // MAINWINDOW_H

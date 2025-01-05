@@ -1,176 +1,127 @@
-#include <iostream>
-#include <algorithm>
-
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QDebug>
+#include <QString>
 
 #include <Backend/Classes/User.hpp>
 #include <Backend/Database/setup.hpp>
-#include <utility>
-
 #include "Backend/Utilities/generateID.hpp"
 
-// Constructor
+// Constructors
 //User::User(const QString& u, const QString& i, const std::vector<Deck> &d)
 //    : username(u), id(i), decks(d) {}
 User::User(const QString& name, const QString& id)
     : username(name), id(id) {}
 User::User(const QString& name_or_id) {
-    if (name_or_id.startsWith("n_")) this->username = name_or_id;
-    else this->id = name_or_id;
+    if (name_or_id.startsWith("n_")) this->username = name_or_id.trimmed();
+    else this->id = name_or_id.trimmed();
 }
 // For the user of listUsers function
 User::User() {}
 
 // Getters
+// Get username
 QString User::getUsername() const {
     // If ID is set, retrieve the username from the database
-    if (this->id.data()) {
+    if (!this->id.isEmpty()) {
         const Database *db = Database::getInstance();
-        QSqlQuery sqlQuery(db->getDB());
+        QSqlQuery query(db->getDB());
 
-        sqlQuery.prepare("SELECT username FROM Users WHERE id = ?");
-        sqlQuery.addBindValue(this->id);
+        query.prepare(QStringLiteral("SELECT username FROM Users WHERE id = ?"));
+        query.addBindValue(this->id);
 
-        if (!sqlQuery.exec() || !sqlQuery.next()){
-            std::cerr << "[DB] Failed to execute query: " << sqlQuery.lastError().text().toStdString() << std::endl;
-            return "username_u_404";
+        if (!query.exec() || !query.next()){
+            qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
+            return QString();
         }
 
-        return sqlQuery.value(0).toString();
+        return query.value(0).toString();
     }
-    if(!this->username.data()) return "username_u_404";
-    return this->username;
+    return this->username.isEmpty() ? QString() : this->username;
 }
 
+// Get user ID
 QString User::getID() const {
-    if (!this->id.data()) return "ID_u_4o4";
-    return this->id;
-}
-
-// Lists user's decks
-std::vector<Deck> User::listDecks() {
-    std::vector<Deck> decks;
-    const Database *db = Database::getInstance();
-    QSqlQuery query(db->getDB());
-
-    // Step 1: Retrieve all deck IDs for the user
-    query.prepare("SELECT deck_id FROM UsersDecks WHERE user_id = ?");
-    query.addBindValue(this->id);
-
-    if (!query.exec()) {
-        std::cerr << "Failed to retrieve deck IDs: " << query.lastError().text().toStdString() << std::endl;
-        return decks;
-    }
-
-    QStringList deckIds;
-    while (query.next()) {
-        deckIds << query.value(0).toString(); // Use column index 0 for deck_id
-    }
-
-    if (deckIds.isEmpty()) return decks; // No decks found
-
-    // Step 2: Retrieve all decks using a single query, quote deck IDs properly
-    QStringList quotedDeckIds;
-    for (const QString& deckId : deckIds) {
-        quotedDeckIds << "'" + deckId + "'";  // Ensure each deck_id is wrapped in single quotes
-    }
-
-    QString queryString = "SELECT id, name FROM Decks WHERE id IN (" + quotedDeckIds.join(",") + ")";
-
-    query.prepare(queryString);
-    if (!query.exec()) {
-        std::cerr << "Failed to retrieve decks: " << query.lastError().text().toStdString() << std::endl;
-        return decks;
-    }
-
-    while (query.next()) {
-        QString deck_id = query.value(0).toString();  // Use column index 0 for id
-        QString deck_name = query.value(1).toString();  // Use column index 1 for name
-
-        decks.emplace_back(deck_name, deck_id);
-    }
-
-    return decks;
+    return this->id.isEmpty() ? QString() : this->id;
 }
 
 // Setters
 
+
+// Database Operations
 // Select user
-bool User::select() {
-    if (!this->id.data()) {
-        std::cerr << "[DB] User Select - Missing ID." << std::endl;
+bool User::select() const {
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] User Select - Missing ID.";
+        return false;
     }
 
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
     // Prepare the SQL query to select the user
-    query.prepare("SELECT username FROM Users WHERE id = ?;");
+    query.prepare(QStringLiteral("SELECT username FROM Users WHERE id = ?;"));
     query.addBindValue(this->id);
 
     // Execute the query and check for errors
     if (!query.exec() || !query.next()) {
-        std::cerr << "[DB] No user found with the given ID." << std::endl;
+        qDebug() << "[DB] No user found with the given ID.";
         return false;
     }
 
-    const QString username = query.value("username").toString();
+    const QString username = query.value(QStringLiteral("username")).toString();
 
     // Check if there is a saved user
-    query.prepare("SELECT COUNT(*) FROM SavedUser LIMIT 1");
+    query.prepare(QStringLiteral("SELECT COUNT(*) FROM SavedUser LIMIT 1"));
 
     if (!query.exec() || !query.next()) {
-        std::cerr << "[DB] Failed to save selected user ID: " << query.lastError().text().toStdString() << std::endl;
+        qDebug() << "[DB] Failed to save selected user ID: " << query.lastError().text();
         return false;
     }
 
-    int count = query.value(0).toInt();
-    if (count == 0) query.prepare("INSERT INTO SavedUser (id) VALUES (?);");
-    else query.prepare("UPDATE SavedUser SET id = ?;");
+    if (query.value(0).toInt() == 0) query.prepare(QStringLiteral("INSERT INTO SavedUser (id) VALUES (?);"));
+    else query.prepare(QStringLiteral("UPDATE SavedUser SET id = ?;"));
 
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        std::cerr << "[DB] Failed to save selected user ID: " << query.lastError().text().toStdString() << std::endl;
+        qDebug() << "[DB] Failed to save selected user ID: " << query.lastError().text();
         return false;
     }
 
-    std::cout << "[DB] Selected User: " << username.toStdString() << std::endl;
+    qDebug() << "[DB] Selected User: " << username;
     return true;
 }
 
-// Database Operations
-
 // Create a new user in the database
 bool User::create() {
-    if (!this->username.data()) {
-        std::cerr << "[DB] User Create - Missing username." << std::endl;
+    if (this->username.isEmpty()) {
+        qDebug() << "[DB] User Create - Missing username.";
         return false;
     }
 
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    std::string id = generateID();
+    QString userId;
     bool idExists;
 
     do {
         // Generate a unique ID
-        id = generateID();
-        std::cout << "[Debug - User] Generated ID: " << id << " for name " << this->username.mid(2).toStdString() << std::endl;
+        userId = QString::fromStdString(generateID());
+        qDebug() << "[Debug - User] Generated ID: " << userId << " for name " << this->username.mid(2);
 
         // Insert the user into the Users table
-        query.prepare("INSERT INTO Users (id, username) VALUES (?, ?);");
-        query.addBindValue(QString::fromStdString(id));
+        query.prepare(QStringLiteral("INSERT INTO Users (id, username) VALUES (?, ?);"));
+        query.addBindValue(userId);
         query.addBindValue(this->username.mid(2));
 
         if (!query.exec()) {
-            if (query.lastError().nativeErrorCode() == "19") { // SQLite constraint violation error code
-                std::cerr << "[DB] ID already exists, generating a new one." << std::endl;
+            if (query.lastError().nativeErrorCode() == QStringLiteral("19")) { // SQLite constraint violation error code
+                qDebug() << "[DB] ID already exists, generating a new one.";
                 idExists = true;
             } else {
-                std::cerr << "[DB] Failed to create user: " << query.lastError().text().toStdString() << std::endl;
+                qDebug() << "[DB] Failed to create user: " << query.lastError().text();
                 return false;
             }
         } else {
@@ -178,41 +129,44 @@ bool User::create() {
         }
     } while (idExists);
 
-    std::cout << "User created successfully with ID: " << id << std::endl;
+    qDebug() << "User created successfully with ID: " << userId;
 
-    this->id = QString::fromStdString(id);
+    this->id = userId;
     return true;
 }
 
 // Rename a user
 bool User::rename(const QString &username) {
-    if (!this->id.data()) {
-        std::cerr << "[DB] User Rename - Missing ID." << std::endl;
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] User Rename - Missing ID.";
+        return false;
+    }
+    if (username.trimmed().isEmpty()) {
+        qDebug() << "[DB] User Rename - Invalid username specified.";
         return false;
     }
 
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare("UPDATE Users SET username = ? WHERE id = ?;");
+    query.prepare(QStringLiteral("UPDATE Users SET username = ? WHERE id = ?;"));
     query.addBindValue(username);
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        std::cerr << "[DB] Failed to rename user: " << query.lastError().text().toStdString() << std::endl;
+        qDebug() << "[DB] Failed to rename user: " << query.lastError().text();
         return false;
     }
 
-    // Update in-memory data
+    // Update class data
     this->username = username;
     return true;
 }
 
 // Delete a user
-bool User::_delete() const
-{
-    if (!this->id.data()) {
-        std::cerr << "[DB] User Delete - Missing ID." << std::endl;
+bool User::_delete() const {
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] User Delete - Missing ID.";
         return false;
     }
 
@@ -223,11 +177,55 @@ bool User::_delete() const
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        std::cerr << "[DB] Failed to delete user: " << query.lastError().text().toStdString() << std::endl;
+        qDebug() << "[DB] Failed to delete user: " << query.lastError().text();
         return false;
     }
 
-    return true;
+    return true; // UsersDecks and UserStats are cleaned up automatically.
+}
+
+// List all user's decks
+std::vector<Deck> User::listDecks() const {
+    std::vector<Deck> decks;
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    // Retrieve all deck IDs for the user
+    query.prepare(QStringLiteral("SELECT deck_id FROM UsersDecks WHERE user_id = ?"));
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "Failed to retrieve deck IDs: " << query.lastError().text();
+        return decks;
+    }
+
+    QStringList deckIds;
+    while (query.next()) {
+        deckIds << query.value(0).toString(); // Use column index 0 for deck_id
+    }
+
+    if (deckIds.isEmpty()) return decks; // No decks found
+
+    // Retrieve all decks using a single query, quote deck IDs properly
+    QStringList quotedDeckIds;
+    for (const QString& deckId : deckIds) {
+        quotedDeckIds << QStringLiteral("'") + deckId + QStringLiteral("'");  // Ensure each deck_id is wrapped in single quotes
+    }
+
+    query.prepare(QStringLiteral("SELECT id, name FROM Decks WHERE id IN (%1)").arg(quotedDeckIds.join(", ")));
+    if (!query.exec()) {
+        qDebug() << "Failed to retrieve decks: " << query.lastError().text();
+        return decks;
+    }
+
+    while (query.next()) {
+        QString deck_id = query.value("id").toString();
+        QString deck_name = query.value("name").toString();
+
+        decks.emplace_back(deck_name, deck_id);
+    }
+
+    return decks;
 }
 
 // List all users
@@ -236,68 +234,20 @@ std::vector<User> User::listUsers() {
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare("SELECT * FROM Users;");
+    query.prepare(QStringLiteral("SELECT * FROM Users;"));
     if (!query.exec()) {
-        std::cerr << "[DB] Failed to list users: " << query.lastError().text().toStdString() << std::endl;
+        qDebug() << "[DB] Failed to list users: " << query.lastError().text();
         return users;
     }
 
     while (query.next()){
-        QString id = query.value("id").toString();
-        QString username = query.value("username").toString();
-        users.emplace_back(username, id);
+        users.emplace_back(query.value("username").toString(), query.value("id").toString());
     }
 
     return users;
 }
 
-// Add a new deck to the user's list
-void User::addDeck(const Deck &deck) {
-    if (!this->id.data()) {
-        std::cerr << "[DB] User Add Deck - Missing ID." << std::endl;
-        return;
-    }
-
-    const Database *db = Database::getInstance();
-    QSqlQuery query(db->getDB());
-
-    // Prepare the SQL query to insert the new deck
-    query.prepare("INSERT INTO Decks (name, user_id) VALUES (?, ?);");
-    query.addBindValue(deck.getName());
-    query.addBindValue(this->id);
-
-    // Execute the query and check for errors
-    if (!query.exec()) {
-        std::cerr << "[DB] Failed to add deck: " << query.lastError().text().toStdString() << std::endl;
-        return;
-    }
-
-    // Add the deck to the user's list of decks
-    this->decks.push_back(deck);
-}
-
-// Remove a deck from the user's list
-bool User::removeDeck(const Deck &deck) {
-    if (!this->id.data()) {
-        std::cerr << "[DB] User Remove Deck - Missing ID." << std::endl;
-        return false;
-    }
-
-    const Database *db = Database::getInstance();
-    QSqlQuery query(db->getDB());
-
-    // Prepare the SQL query to delete the deck
-    query.prepare("DELETE FROM Decks WHERE id = ? AND user_id = ?;");
-    query.addBindValue(deck.getID());
-    query.addBindValue(this->id);
-
-    // Execute the query and check for errors
-    if (!query.exec()) {
-        std::cerr << "[DB] Failed to remove deck: " << query.lastError().text().toStdString() << std::endl;
-        return false;
-    }
-
-    // Integrate Deck removal with the database properly
-
-    return true;
+// Get User stats
+void User::getStats() const {
+    qDebug() << "User Stats";
 }

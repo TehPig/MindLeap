@@ -748,36 +748,44 @@ QSlider::sub-page:vertical {
           <property name="enabled">
            <bool>true</bool>
           </property>
+          <property name="visible">
+           <bool>false</bool>
+          </property>
           <property name="styleSheet">
            <string notr="true">QTableWidget {
-        background-color: #1e1d23;
-        gridline-color: transparent;
-        border: none;
-        color: #a9b7c6;
-    }
-    QTableWidget::item {
-        border: none;
-        padding: 5px;
-        background-color: #1e1d23;
-        color: #a9b7c6;
-    }
-    QTableWidget::item:selected {
-        background-color: transparent;
-        color: #a9b7c6;
-    }
-    QHeaderView::section {
-        background-color: #1e1d23;
-        color: #a9b7c6;
-        border: none;
-        padding: 4px;
-    }
-    QTableCornerButton::section {
-        background-color: #1e1d23;
-        border: none;
-    }</string>
+    background-color: #1e1d23;
+    gridline-color: transparent;
+    border: 1px solid #a9b7c6; /* Add border */
+    border-radius: 10px; /* Rounded corners */
+    padding: 2px; /* Increase padding to prevent border cut-off */
+    color: #a9b7c6;
+}
+QTableWidget::item {
+    border: none;
+    padding: 5px;
+    background-color: #1e1d23;
+    color: #a9b7c6;
+}
+QTableWidget::item:selected {
+    background-color: transparent;
+    color: #a9b7c6;
+}
+QHeaderView::section {
+    background-color: #1e1d23;
+    color: #a9b7c6;
+    border: none;
+    padding: 4px;
+}
+QTableCornerButton::section {
+    background-color: #1e1d23;
+    border: none;
+}</string>
           </property>
           <property name="alternatingRowColors">
            <bool>false</bool>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::SelectionMode::NoSelection</enum>
           </property>
           <property name="showGrid">
            <bool>true</bool>
@@ -800,6 +808,9 @@ QSlider::sub-page:vertical {
           <attribute name="horizontalHeaderHighlightSections">
            <bool>true</bool>
           </attribute>
+          <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
+           <bool>false</bool>
+          </attribute>
           <attribute name="horizontalHeaderStretchLastSection">
            <bool>false</bool>
           </attribute>
@@ -811,12 +822,16 @@ QSlider::sub-page:vertical {
           </attribute>
           <column>
            <property name="text">
-            <string>Name</string>
+            <string>  Name</string>
            </property>
            <property name="font">
             <font>
+             <pointsize>13</pointsize>
              <bold>true</bold>
             </font>
+           </property>
+           <property name="textAlignment">
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -825,16 +840,18 @@ QSlider::sub-page:vertical {
            </property>
            <property name="font">
             <font>
+             <pointsize>12</pointsize>
              <bold>true</bold>
             </font>
            </property>
           </column>
           <column>
            <property name="text">
-            <string>For Review</string>
+            <string>Review</string>
            </property>
            <property name="font">
             <font>
+             <pointsize>12</pointsize>
              <bold>true</bold>
             </font>
            </property>
@@ -845,6 +862,7 @@ QSlider::sub-page:vertical {
            </property>
            <property name="font">
             <font>
+             <pointsize>12</pointsize>
              <bold>true</bold>
             </font>
            </property>
@@ -855,6 +873,7 @@ QSlider::sub-page:vertical {
            </property>
            <property name="font">
             <font>
+             <pointsize>12</pointsize>
              <bold>true</bold>
             </font>
            </property>
