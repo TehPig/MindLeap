@@ -8,16 +8,19 @@
 
 #include "Backend/Classes/Deck.hpp"
 #include "Backend/Database/setup.hpp"
-#include "Backend/Utilities/generateID.hpp"
+#include "Backend/Utilities/createUniqueDeck.hpp"
 
 // Constructors
 Deck::Deck(const QString& name, const std::vector<Card>& c)
     : name(name), cards(c) {}
-Deck::Deck(const QString& name, const QString& id) : name(name), id(id) {}
+Deck::Deck(const QString& name, const QString& id) :
+    name(name), id(id) {}
 Deck::Deck(const QString& name_or_id) {
     if (name_or_id.startsWith("n_")) this->name = name_or_id.trimmed();
     else this->id = name_or_id.trimmed();
 }
+// For returning results
+Deck::Deck() {}
 
 // Getters
 // Get Deck name
@@ -46,64 +49,88 @@ bool Deck::create() {
 
     const QString userId = query.value("id").toString();
 
-    // Generate a unique ID
-    QString deckId;
-    bool idExists = false;
-
-    do {
-        deckId = QString::fromStdString(generateID());
-        query.prepare(QStringLiteral("SELECT COUNT(*) FROM Decks WHERE id = ?"));
-        query.addBindValue(deckId);
-
+    if (this->name.isEmpty()) {
+        // Check if Default user exists
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM Decks WHERE name = 'Default';"));
         if (!query.exec()) {
-            qDebug() << "[DB] Could not check for existing Deck ID: " << query.lastError().text();
+            qDebug() << "[DB] Failed to check for default user: " << query.lastError().text();
             return false;
         }
 
-        query.next();
-        idExists = query.value(0).toInt() > 0;
-    } while (idExists);
+        if (query.next() && query.value(0).toInt() > 0) {
+            qDebug() << "[DB] Default user already exists. For a new user, specify a username.";
+            return false;
+        }
 
-    // Insert the new Deck into the Decks table
-    query.prepare(QStringLiteral("INSERT INTO Decks (id, name) VALUES (?, ?)"));
-    query.addBindValue(deckId);
-    query.addBindValue(this->name.mid(2));
-
-    if (!query.exec()) {
-        qDebug() << "[DB] Could not insert Deck into Decks table: " << query.lastError().text();
-        return false;
+        return createUniqueDeck("Default");
     }
 
-    // Link the Deck to the User in UsersDecks table
-    query.prepare(QStringLiteral("INSERT INTO UsersDecks (user_id, deck_id) VALUES (?, ?)"));
-    query.addBindValue(userId);
-    query.addBindValue(deckId);
-
-    if (!query.exec()) {
-        qDebug() << "[DB] Could not link Deck to User in UsersDecks table: " << query.lastError().text();
-        return false;
-    }
-
-    this->id = deckId;
-    return true;
+    return createUniqueDeck(this->name);
 }
 
-// Set Deck description
-bool Deck::setDescription(const QString& description) const {
-    if (description.trimmed().isEmpty()) {
-        qDebug() << "[DB] Deck Set Description - Missing description.";
+// Delete Deck
+bool Deck::_delete() const {
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] Deck Delete - Missing ID.";
         return false;
     }
 
-    const Database* db = Database::getInstance();
+    const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare(QStringLiteral("UPDATE Decks SET description = ? WHERE id = ?"));
-    query.addBindValue(description);
+    query.prepare("DELETE FROM Decks WHERE id = ?;");
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Could not update Deck description: " << query.lastError().text();
+        qDebug() << "[DB] Failed to delete deck: " << query.lastError().text();
+        return false;
+    }
+
+    return true; // DecksCards and DeckStats are automatically cleaned up by cascading rules.
+}
+
+// Fetch Deck from database
+Deck Deck::fetch() const {
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    if (!this->id.isEmpty()) {
+        query.prepare(QStringLiteral("SELECT * FROM Decks WHERE id = ?;"));
+        query.addBindValue(this->id);
+    } else if (!this->name.isEmpty()) {
+        query.prepare(QStringLiteral("SELECT * FROM Decks WHERE name = ?;"));
+        query.addBindValue(this->name);
+    } else {
+        qDebug() << "[DB] Deck Fetch - Unable to fetch without ID or username.";
+        return Deck();
+    }
+
+    return Deck(query.value("name").toString(), query.value("id").toString());
+}
+
+// Add Card to Deck
+bool Deck::addCard(Card& card) const {
+    // Check if the Card exists in the Cards table
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("SELECT * FROM Cards WHERE id = ? LIMIT 1"));
+    query.addBindValue(card.getID());
+
+    if (!query.exec() || !query.next()) {
+        qDebug() << "[DB] Card not found in Cards table, creating Card...";
+        if (!card.create()) {
+            qDebug() << "[DB] Could not create Card.";
+            return false;
+        }
+    }
+
+    query.prepare(QStringLiteral("INSERT INTO DecksCards (deck_id, card_id) VALUES (?, ?)"));
+    query.addBindValue(this->id);
+    query.addBindValue(card.getID());
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Could not link Card and Deck: " << query.lastError().text();
         return false;
     }
 
@@ -135,25 +162,42 @@ bool Deck::rename(const QString& newName) {
     return true;
 }
 
-// Delete Deck
-bool Deck::_delete() const {
-    if (this->id.isEmpty()) {
-        qDebug() << "[DB] Deck Delete - Missing ID.";
+// Set Deck description
+bool Deck::setDescription(const QString& description) const {
+    if (description.trimmed().isEmpty()) {
+        qDebug() << "[DB] Deck Set Description - Missing description.";
         return false;
     }
 
-    const Database *db = Database::getInstance();
+    const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare("DELETE FROM Decks WHERE id = ?;");
+    query.prepare(QStringLiteral("UPDATE Decks SET description = ? WHERE id = ?"));
+    query.addBindValue(description);
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to delete deck: " << query.lastError().text();
+        qDebug() << "[DB] Could not update Deck description: " << query.lastError().text();
         return false;
     }
 
-    return true; // DecksCards and DeckStats are automatically cleaned up by cascading rules.
+    return true;
+}
+
+// Get Deck description
+QString Deck::getDescription() const {
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("SELECT description FROM Decks WHERE id = ?"));
+    query.addBindValue(this->id);
+
+    if (!query.exec() || !query.next()) {
+        qDebug() << "[DB] Could not retrieve Deck description: " << query.lastError().text();
+        return QString();
+    }
+
+    return query.value("description").toString();
 }
 
 // List all Deck cards
@@ -162,7 +206,7 @@ std::vector<Card> Deck::listCards() const {
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare(QStringLiteral("SELECT id, question, answer FROM Cards WHERE deck_id = ?"));
+    query.prepare(QStringLiteral("SELECT id, question, answer, type FROM Cards WHERE deck_id = ?"));
     query.addBindValue(this->id);
 
     if (!query.exec()) {
@@ -171,7 +215,7 @@ std::vector<Card> Deck::listCards() const {
     }
 
     while (query.next()) {
-        cards.emplace_back(query.value("id").toString(), query.value("question").toString(), query.value("answer").toString());
+        studyQueue.push(Card(query.value("id").toString(), query.value("question").toString(), query.value("answer").toString(), Card::stringToType(query.value("type").toString())));
     }
 
     return cards;
@@ -191,6 +235,43 @@ int Deck::getCardCount() const {
     }
 
     return query.next() ? query.value(0).toInt() : 0;
+}
+
+// Studying
+bool Deck::study() {
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] Deck Study - Missing ID.";
+        return false;
+    }
+
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    qDebug() << "[Info] Studying Deck: " << this->name;
+
+    query.prepare(QStringLiteral("SELECT card_id FROM DecksCards WHERE deck_id = ?"));
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Could retrieve cards for studying: " << query.lastError().text();
+        return false;
+    }
+
+    while (query.next()) {
+
+    }
+}
+
+// Get Next Card
+Card Deck::getNextCard() {
+    if (this->studyQueue.empty()) {
+        qDebug() << "[Info] Study Queue is empty.";
+        return Card();
+    }
+
+    const Card nextCard = this->studyQueue.front();
+    this->studyQueue.pop();
+    return nextCard;
 }
 
 // Get Deck stats

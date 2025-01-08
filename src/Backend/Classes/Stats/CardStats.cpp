@@ -30,28 +30,18 @@ QDateTime CardStats::getLastSeen() const { return last_seen; }
 // Database Operations
 // Update stats based on user interactions
 void CardStats::updateStats(const StatsUpdateContext& context) {
-    // times_seen++;
-    // time_spent_seconds += time_spent;
-    // last_seen = QDateTime::currentDateTime();
+    times_seen++;
+    time_spent_seconds += context.time_spent;
+    last_seen = QDateTime::currentDateTime();
 
-    // // Update time_to_reappear based on button_pressed
-    // switch (button_pressed) {
-    //     case 1:
-    //         time_to_reappear = 0;
-    //         break;
-    //     case 2:
-    //         time_to_reappear = 1;
-    //         break;
-    //     case 3:
-    //         time_to_reappear = 3;
-    //         break;
-    //     case 4:
-    //         time_to_reappear = 7;
-    //         break;
-    //     default:
-    //         time_to_reappear = 0;
-    //         break;
-    // }
+    // Calculate time_to_reappear based on button pressed
+    switch (context.button_pressed) {
+        case 1: time_to_reappear = 0; break; // Immediate retry
+        case 2: time_to_reappear = 1; break; // 1 day later
+        case 3: time_to_reappear = 3; break; // 3 days later
+        case 4: time_to_reappear = 7; break; // 7 days later
+        default: time_to_reappear = 0; break;
+    }
 }
 
 // Display stats for debugging

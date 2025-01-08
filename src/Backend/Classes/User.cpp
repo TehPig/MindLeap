@@ -3,9 +3,10 @@
 #include <QDebug>
 #include <QString>
 
-#include <Backend/Classes/User.hpp>
-#include <Backend/Database/setup.hpp>
+#include "Backend/Classes/User.hpp"
+#include "Backend/Database/setup.hpp"
 #include "Backend/Utilities/generateID.hpp"
+#include "Backend/Utilities/createUniqueUser.hpp"
 
 // Constructors
 //User::User(const QString& u, const QString& i, const std::vector<Deck> &d)
@@ -49,6 +50,95 @@ QString User::getID() const {
 
 
 // Database Operations
+
+// Create a new user in the database
+bool User::create() {
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    if (this->username.isEmpty()) {
+        // Check if Default user exists
+        query.prepare(QStringLiteral("SELECT COUNT(*) FROM Users WHERE username = 'Default';"));
+        if (!query.exec()) {
+            qDebug() << "[DB] Failed to check for default user: " << query.lastError().text();
+            return false;
+        }
+
+        if (query.next() && query.value(0).toInt() > 0) {
+            qDebug() << "[DB] Default user already exists. For a new user, specify a username.";
+            return false;
+        }
+
+        return createUniqueUser("Default");
+    }
+
+    return createUniqueUser(this->username.mid(2));
+}
+
+// Delete a user
+bool User::_delete() const {
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] User Delete - Missing ID.";
+        return false;
+    }
+
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("DELETE FROM Users WHERE id = ?;"));
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to delete user: " << query.lastError().text();
+        return false;
+    }
+
+    return true; // UsersDecks and UserStats are cleaned up automatically.
+}
+
+// Fetch a user from the database
+User User::fetch() const {
+    if (this->id.isEmpty() && this->username.isEmpty()) {
+        qDebug() << "[DB] User Fetch - Unable to fetch without ID or username.";
+        return User();
+    }
+
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("SELECT * FROM Users WHERE id = ?;"));
+    query.addBindValue(this->id);
+
+    if (!query.exec() || !query.next()) {
+        query.prepare(QStringLiteral("SELECT * FROM Users WHERE username = ?;"));
+        query.addBindValue(this->username);
+
+        if (!query.exec() || !query.next()) {
+            qDebug() << "[DB] No user found with the given ID or username.";
+            return User();
+        }
+
+        return User(query.value("username").toString(), query.value("id").toString());
+    }
+
+    return User(query.value("username").toString(), query.value("id").toString());
+}
+
+// Find the selected user
+User User::fetchSelected() {
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1;"));
+
+    if (!query.exec() || !query.next()) {
+        qDebug() << "[DB] No selected user found.";
+        return User();
+    }
+
+    return User(query.value("id").toString());
+}
+
 // Select user
 bool User::select() const {
     if (this->id.isEmpty()) {
@@ -93,48 +183,6 @@ bool User::select() const {
     return true;
 }
 
-// Create a new user in the database
-bool User::create() {
-    if (this->username.isEmpty()) {
-        qDebug() << "[DB] User Create - Missing username.";
-        return false;
-    }
-
-    const Database *db = Database::getInstance();
-    QSqlQuery query(db->getDB());
-
-    QString userId;
-    bool idExists;
-
-    do {
-        // Generate a unique ID
-        userId = QString::fromStdString(generateID());
-        qDebug() << "[Debug - User] Generated ID: " << userId << " for name " << this->username.mid(2);
-
-        // Insert the user into the Users table
-        query.prepare(QStringLiteral("INSERT INTO Users (id, username) VALUES (?, ?);"));
-        query.addBindValue(userId);
-        query.addBindValue(this->username.mid(2));
-
-        if (!query.exec()) {
-            if (query.lastError().nativeErrorCode() == QStringLiteral("19")) { // SQLite constraint violation error code
-                qDebug() << "[DB] ID already exists, generating a new one.";
-                idExists = true;
-            } else {
-                qDebug() << "[DB] Failed to create user: " << query.lastError().text();
-                return false;
-            }
-        } else {
-            idExists = false;
-        }
-    } while (idExists);
-
-    qDebug() << "User created successfully with ID: " << userId;
-
-    this->id = userId;
-    return true;
-}
-
 // Rename a user
 bool User::rename(const QString &username) {
     if (this->id.isEmpty()) {
@@ -161,27 +209,6 @@ bool User::rename(const QString &username) {
     // Update class data
     this->username = username;
     return true;
-}
-
-// Delete a user
-bool User::_delete() const {
-    if (this->id.isEmpty()) {
-        qDebug() << "[DB] User Delete - Missing ID.";
-        return false;
-    }
-
-    const Database *db = Database::getInstance();
-    QSqlQuery query(db->getDB());
-
-    query.prepare("DELETE FROM Users WHERE id = ?;");
-    query.addBindValue(this->id);
-
-    if (!query.exec()) {
-        qDebug() << "[DB] Failed to delete user: " << query.lastError().text();
-        return false;
-    }
-
-    return true; // UsersDecks and UserStats are cleaned up automatically.
 }
 
 // List all user's decks

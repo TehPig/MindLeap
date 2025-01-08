@@ -15,10 +15,11 @@
 #include <Backend/Database/setup.hpp>
 
 #include "Frontend/mainwindow.h"
+#include "Frontend/addcarddialog.h"
 #include "Frontend/confirmationdialog.h"
 #include "Frontend/customdialog.h"
 #include "Frontend/selectuser.h"
-#include <Frontend/hoverabletablewidget.h>
+#include "Frontend/hoverabletablewidget.h"
 #include "forms/ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -26,10 +27,14 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow()) {
     ui->setupUi(this);
 
+    // Make sure unwanted elements are hidden
+    if(!ui->scrollArea->isVisible()) ui->scrollArea->setVisible(true);
     ui->deckWidget->setVisible(false);
+    ui->SetDescriptionButton->setVisible(false);
+    ui->AddCardButton->setVisible(false);
 
     // Make the table widget hoverable
-    auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->tableWidget);
+    auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->CardList);
     connect(tableWidget, &HoverableTableWidget::rowHovered, this, &MainWindow::onRowHovered);
     connect(tableWidget, &HoverableTableWidget::rowLeft, this, &MainWindow::onRowLeft);
 
@@ -84,117 +89,26 @@ MainWindow::MainWindow(QWidget *parent)
 
     // List the user's decks
     populateTableWidget(user.listDecks());
+}
+
+MainWindow::~MainWindow() { delete ui; }
+
+HoverableTableWidget* MainWindow::get_tableWidget() {
+    return static_cast<HoverableTableWidget*>(ui->CardList);
+}
+
+void MainWindow::populateTableWidget(const std::vector<Deck>& decks) {
+    ui->CardList->setRowCount(decks.size());
+    for(int row = 0; row < decks.size(); row++) insertTableRow(decks[row], row, false);
 
     QTimer::singleShot(0, this, [this]() {
         adjustTableColumnWidths();
     });
 }
 
-MainWindow::~MainWindow() { delete ui; }
-
-HoverableTableWidget* MainWindow::get_tableWidget() {
-    return static_cast<HoverableTableWidget*>(ui->tableWidget);
-}
-
-void MainWindow::on_pushButton_clicked() {
-    if(!ui->tableWidget->isVisible()){
-        ui->deckWidget->setVisible(false);
-        ui->tableWidget->setVisible(true);
-    }
-}
-
-void MainWindow::populateTableWidget(const std::vector<Deck>& decks) {
-    ui->tableWidget->setRowCount(decks.size());
-    QFont font;
-    font.setPointSize(12);
-
-    for (int i = 0; i < decks.size(); i++) {
-        const Deck &deck = decks[i];
-
-        // Set Names
-        auto *nameItem = new QTableWidgetItem(deck.getName());
-        nameItem->setTextAlignment(Qt::AlignLeft);
-
-        QFont boldFont = nameItem->font();
-        boldFont.setBold(true);
-        boldFont.setPointSize(11);
-        nameItem->setFont(boldFont); // Apply bold font
-
-        nameItem->setData(Qt::UserRole, QVariant(deck.getID()));
-        ui->tableWidget->setItem(i, 0, nameItem);
-
-        // Set New, Learn, Review, and Total values
-        auto *newItem = new QTableWidgetItem("1"); // Example values
-        newItem->setTextAlignment(Qt::AlignCenter);
-        newItem->setFont(font);
-        ui->tableWidget->setItem(i, 1, newItem);
-
-        auto *learnItem = new QTableWidgetItem("2"); // Example values
-        learnItem->setTextAlignment(Qt::AlignCenter);
-        learnItem->setFont(font);
-        ui->tableWidget->setItem(i, 2, learnItem);
-
-        auto *reviewItem = new QTableWidgetItem("3"); // Example values
-        reviewItem->setTextAlignment(Qt::AlignCenter);
-        reviewItem->setFont(font);
-        ui->tableWidget->setItem(i, 3, reviewItem);
-
-        auto *totalItem = new QTableWidgetItem(QString::number(deck.getCardCount())); // Example values
-        totalItem->setTextAlignment(Qt::AlignCenter);
-        totalItem->setFont(font);
-        ui->tableWidget->setItem(i, 4, totalItem);
-
-        // Settings Button in Container (Hidden by default)
-        auto *settingsButton = new QPushButton();
-        settingsButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_CommandLink));
-        settingsButton->setIconSize(QSize(32, 32));  // Smaller icon size for better fit
-        settingsButton->setStyleSheet(R"(QPushButton {
-                                            border: none;
-                                            background: transparent;
-                                            color: #a9b7c6;
-                                        }
-                                        QPushButton:focus {
-                                            outline: none;
-                                        }
-                                    )");
-
-        settingsButton->setFocusPolicy(Qt::NoFocus);  // Avoid focus interference
-        settingsButton->setVisible(false);  // Initially hide the button
-
-        // Connect the settings button to the context menu or other actions
-        connect(settingsButton, &QPushButton::clicked, this, [this, deck, settingsButton]() {
-            // Example of handling the click on the settings button
-            //keepButtonVisible();
-            QTableWidget* tableWidget = ui->tableWidget;
-
-            // Find the row containing this button
-            for (int row = 0; row < tableWidget->rowCount(); ++row) {
-                if (tableWidget->cellWidget(row, 5) == settingsButton->parentWidget()) {
-                    qDebug() << "Settings button clicked for row" << row;
-
-                    showDeckSettings(deck, row);
-                    return;
-                }
-            }
-        });
-
-        // Container for the button in column 5
-        auto *container = new QWidget();
-        auto *layout = new QHBoxLayout(container);
-        layout->setContentsMargins(0, 0, 0, 0); // Remove margins
-        layout->addWidget(settingsButton);
-        layout->setAlignment(Qt::AlignCenter);
-        container->setLayout(layout);
-
-        ui->tableWidget->setCellWidget(i, 5, container);
-
-        // Install event filter to detect hover and hide/show the button
-        container->installEventFilter(this);
-    }
-}
-
 void MainWindow::adjustTableColumnWidths() {
-    QTableWidget* table = ui->tableWidget;
+    QTableWidget* table = ui->CardList;
+    ui->CardList->setFocusPolicy(Qt::NoFocus);
 
     // Total available width
     double totalWidth = static_cast<double>(table->viewport()->width());
@@ -205,7 +119,7 @@ void MainWindow::adjustTableColumnWidths() {
     }
 
     // Proportions for each column except the last one
-    const double proportions[] = {0.45, 0.1, 0.1, 0.1, 0.1};
+    const double proportions[] = {0.5, 0.1, 0.1, 0.1, 0.1};
     const int columnCount = sizeof(proportions) / sizeof(proportions[0]);
 
     // Verify proportions sum to less than 1.0
@@ -249,21 +163,21 @@ void MainWindow::adjustTableColumnWidths() {
 
 // Override resizeEvent to adjust column widths on resize
 void MainWindow::resizeEvent(QResizeEvent *event) {
-    if(!ui->tableWidget->isVisible()) return;
+    if(!ui->CardList->isVisible()) return;
     QMainWindow::resizeEvent(event); // Call base class implementation
     adjustTableColumnWidths();       // Adjust column widths dynamically
 }
 
 void MainWindow::setButtonVisibility(int row, bool visible) {
-    auto *container = ui->tableWidget->cellWidget(row, 5);
-    if (container && !ui->tableWidget->getContextMenuActive()) {
+    auto *container = ui->CardList->cellWidget(row, 5);
+    if (container && !ui->CardList->getContextMenuActive()) {
         container->findChild<QPushButton *>()->setVisible(visible);
     }
 }
 
 // Context menu function that opens on settings button click
 void MainWindow::showDeckSettings(const Deck& deck, const int row) {
-    auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->tableWidget);
+    auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->CardList);
     tableWidget->setContextMenuActive(true);
 
     QMenu contextMenu(this);
@@ -277,9 +191,7 @@ void MainWindow::showDeckSettings(const Deck& deck, const int row) {
                 if (idVariant.isValid()) {
                     QString deckID = idVariant.toString();
                     auto *container = tableWidget->cellWidget(row, 5);
-                    if (container) {
-                        container->findChild<QPushButton *>()->setVisible(false);
-                    }
+                    if (container) container->findChild<QPushButton *>()->setVisible(false);
 
                     // Set context menu inactive
                     tableWidget->setContextMenuActive(false);
@@ -342,9 +254,7 @@ void MainWindow::showDeckSettings(const Deck& deck, const int row) {
     connect(&contextMenu, &QMenu::aboutToHide, this, [this, tableWidget, row]() {
         if (row != -1) {
             auto *container = tableWidget->cellWidget(row, 5);
-            if (container) {
-                container->findChild<QPushButton *>()->setVisible(false);
-            }
+            if (container) container->findChild<QPushButton *>()->setVisible(false);
         }
         tableWidget->setContextMenuActive(false);
     });
@@ -357,8 +267,8 @@ void MainWindow::onRowHovered(int row) { setButtonVisibility(row, true); }
 
 void MainWindow::onRowLeft(int row) { setButtonVisibility(row, false); }
 
-// Create Deck dialog
-void MainWindow::on_pushButton_5_clicked() {
+// Dialogs
+void MainWindow::on_CreateDeckButton_clicked() {
     CustomDialog *dialog = new CustomDialog(this);
     dialog->setWindowTitleText("Create Deck");
     dialog->setMessageText("Enter Deck name:");
@@ -376,40 +286,174 @@ void MainWindow::on_pushButton_5_clicked() {
 
         QTableWidget* list = this->get_tableWidget();
         int row = list->rowCount();
-        list->insertRow(row); // Insert a new row
+        list->insertRow(row);
 
-        // Set Names
-        auto *nameItem = new QTableWidgetItem(deck.getName());
+        insertTableRow(deck, row, true);
 
-        QFont boldFont = nameItem->font();
-        boldFont.setBold(true);
-        nameItem->setFont(boldFont); // Apply bold font
+        delete dialog;
+        ui->CardList->viewport()->update();
 
-        nameItem->setData(Qt::UserRole, QVariant(deck.getID()));
-        ui->tableWidget->setItem(row, 0, nameItem);
+        // Show hidden buttons
+        ui->CreateDeckButton->setVisible(false);
+        ui->SetDescriptionButton->setVisible(true);
 
-        // Set New, Learn, Review, and Total values
-        auto *newItem = new QTableWidgetItem("0"); // Example values
-        newItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableWidget->setItem(row, 1, newItem);
+        showDeckInfo(deck);
+    }
+}
 
-        auto *learnItem = new QTableWidgetItem("0"); // Example values
-        learnItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableWidget->setItem(row, 2, learnItem);
+void MainWindow::on_DecksButton_clicked() {
+    if(!ui->scrollArea->isVisible()){
+        ui->deckWidget->setVisible(false);
+        ui->scrollArea->setVisible(true);
 
-        auto *reviewItem = new QTableWidgetItem("0"); // Example values
-        reviewItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableWidget->setItem(row, 3, reviewItem);
+        // Change button visibility
+        ui->CreateDeckButton->setVisible(true);
+        ui->SetDescriptionButton->setVisible(false);
+        ui->AddCardButton->setVisible(false);
 
-        auto *totalItem = new QTableWidgetItem(QString::number(deck.getCardCount())); // Example values
-        totalItem->setTextAlignment(Qt::AlignCenter);
-        ui->tableWidget->setItem(row, 4, totalItem);
+        adjustTableColumnWidths();
+    }
+}
 
-        // Settings Button in Container (Hidden by default)
-        auto *settingsButton = new QPushButton();
-        settingsButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_CommandLink));
-        settingsButton->setIconSize(QSize(32, 32));  // Smaller icon size for better fit
-        settingsButton->setStyleSheet(R"(QPushButton {
+void MainWindow::on_SetDescriptionButton_clicked() {
+    CustomDialog* dialog = new CustomDialog(this);
+    dialog->setWindowTitleText("Set Deck Description");
+    dialog->setMessageText("Enter description:");
+
+    if(dialog->exec() == QDialog::Accepted){
+        QString deckDescription = dialog->getEnteredText(); // Now safe to get entered text
+
+        const QString id = ui->Name->property("deckID").toString();
+        Deck deck(id);
+        const bool status = deck.setDescription(deckDescription);
+        if(!status){
+            this->statusBar()->showMessage("Error: Deck Description was not set.");
+            delete dialog;
+            return;
+        }
+
+        if(!ui->scrollArea_2->isVisible()) ui->scrollArea_2->setVisible(true);
+
+        ui->Description->setText(deckDescription);
+        delete dialog;
+    }
+}
+
+void MainWindow::on_AddCardButton_clicked() {
+    AddCardDialog* dialog = new AddCardDialog(this);
+
+    if(dialog->exec() == QDialog::Accepted){
+        const QString id = ui->Name->property("deckID").toString();
+        const QString question = dialog->getQuestion();
+        const QString answer = dialog->getAnswer();
+
+        Card card(question, answer);
+        Deck deck(id);
+        const bool status = deck.addCard(card);
+        if(!status){
+            this->statusBar()->showMessage("Error: Card not added to Deck");
+            delete dialog;
+            return;
+        }
+
+        showDeckInfo(deck);
+        delete dialog;
+    }
+}
+
+// Helper Methods
+void MainWindow::showDeckInfo(const Deck& deck) {
+    ui->CreateDeckButton->setVisible(false);
+    ui->SetDescriptionButton->setVisible(true);
+    ui->AddCardButton->setVisible(true);
+
+    // Change visible widget
+    ui->scrollArea->setVisible(false);
+    ui->deckWidget->setVisible(true);
+
+    // Ensure the QLabel widgets are visible
+    // Set the text
+    ui->Name->setText(deck.getName());
+    ui->Name->setProperty("deckID", deck.getID());
+
+    const QString deckDescription = deck.getDescription();
+    if(!deckDescription.isEmpty()){
+        ui->scrollArea_2->setVisible(true);
+        ui->Description->setText(deckDescription);
+    } else ui->scrollArea_2->setVisible(false);
+
+    ui->UnseenCount->setText(QString::number(deck.getCardCount()));
+    ui->PendingCount->setText("0");
+    ui->ReviewCount->setText("0");
+
+    ui->CardCount->setText("Total Cards: " + QString::number(deck.getCardCount()));
+
+    ui->Description->adjustSize();
+    // ui->UnseenCount->adjustSize();
+    // ui->ReviewCount->adjustSize();
+    // ui->PendingCount->adjustSize();
+}
+
+void MainWindow::insertTableRow(const Deck& deck, const int& row, const bool& insert_default_values){
+    QFont font;
+    font.setPointSize(12);
+
+    // Set Names
+    QLabel *nameLabel = new QLabel();
+    nameLabel->setText("<a href=\"#\">" + deck.getName() + "</a>");
+    nameLabel->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    nameLabel->setOpenExternalLinks(false);
+
+    nameLabel->setStyleSheet(R"(
+        QLabel {
+            background-color: transparent;
+            text-decoration: none;
+        }
+        QLabel::hover {
+            text-decoration: underline;
+        }
+    )");
+
+    connect(nameLabel, &QLabel::linkActivated, this, [this, deck]() {
+        showDeckInfo(deck);
+    });
+
+    ui->CardList->setCellWidget(row, 0, nameLabel);
+
+    QTableWidgetItem *nameItem = new QTableWidgetItem();
+    nameItem->setData(Qt::UserRole, QVariant(deck.getID()));
+    ui->CardList->setItem(row, 0, nameItem);
+
+    // Set New, Learn, Review, and Total values
+    auto *newItem = new QTableWidgetItem(!insert_default_values ? "1" : "0");
+    newItem->setFont(font);
+    newItem->setTextAlignment(Qt::AlignCenter);
+    newItem->setFlags(newItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
+    ui->CardList->setItem(row, 1, newItem);
+
+    auto *learnItem = new QTableWidgetItem(!insert_default_values ? "1" : "0");
+    learnItem->setFont(font);
+    learnItem->setTextAlignment(Qt::AlignCenter);
+    learnItem->setFlags(learnItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
+    ui->CardList->setItem(row, 2, learnItem);
+
+    auto *reviewItem = new QTableWidgetItem(!insert_default_values ? "1" : "0");
+    reviewItem->setFont(font);
+    reviewItem->setTextAlignment(Qt::AlignCenter);
+    reviewItem->setFlags(reviewItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
+    ui->CardList->setItem(row, 3, reviewItem);
+
+    auto *totalItem = new QTableWidgetItem(QString::number(deck.getCardCount()));
+    totalItem->setFont(font);
+    totalItem->setTextAlignment(Qt::AlignCenter);
+    totalItem->setFlags(totalItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
+    ui->CardList->setItem(row, 4, totalItem);
+
+    // Settings Button in Container (Hidden by default)
+    auto *settingsButton = new QPushButton();
+    settingsButton->setIcon(QApplication::style()->standardIcon(QStyle::SP_CommandLink));
+    settingsButton->setIconSize(QSize(32, 32));
+    settingsButton->setStyleSheet(R"(QPushButton {
                                             border: none;
                                             background: transparent;
                                             color: #a9b7c6;
@@ -419,60 +463,37 @@ void MainWindow::on_pushButton_5_clicked() {
                                         }
                                     )");
 
-        settingsButton->setFocusPolicy(Qt::NoFocus);  // Avoid focus interference
-        settingsButton->setVisible(false);  // Initially hide the button
+    settingsButton->setFocusPolicy(Qt::NoFocus);  // Avoid focus interference
+    settingsButton->setVisible(false);
 
-        // Connect the settings button to the context menu or other actions
-        connect(settingsButton, &QPushButton::clicked, this, [this, deck, row]() {
-            showDeckSettings(deck, row);
-        });
+    // Connect the settings button to the context menu or other actions
+    connect(settingsButton, &QPushButton::clicked, this, [this, deck, row]() {
+        showDeckSettings(deck, row);
+    });
 
-        // Container for the button in column 5
-        auto *container = new QWidget();
-        auto *layout = new QHBoxLayout(container);
-        layout->setContentsMargins(0, 0, 0, 0); // Remove margins
-        layout->addWidget(settingsButton);
-        layout->setAlignment(Qt::AlignCenter);
-        container->setLayout(layout);
+    // Container for the button in column 5
+    auto *container = new QWidget();
+    auto *layout = new QHBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0); // Remove margins
+    layout->addWidget(settingsButton);
+    layout->setAlignment(Qt::AlignCenter);
+    container->setLayout(layout);
 
-        list->setCellWidget(row, 5, container);
+    ui->CardList->setCellWidget(row, 5, container);
 
-        // Install event filter to detect hover and hide/show the button
-        container->installEventFilter(this);
-
-        delete dialog;
-        list->viewport()->update();
-
-        list->setVisible(false);
-        ui->widget_2->setVisible(true);
-
-        // Ensure the QLabel widgets are properly initialized
-        if (ui->Name && ui->CardCount) {
-            // Set the text color and background color
-            ui->Name->setStyleSheet("color: red; background-color: white;");
-            ui->CardCount->setStyleSheet("color: red; background-color: white;");
-
-            // Ensure the QLabel widgets are visible
-            ui->Name->setVisible(true);
-            ui->CardCount->setVisible(true);
-
-            // Set the text
-            ui->Name->setText(deck.getName());
-            ui->CardCount->setText("Total Cards: " + QString::number(deck.getCardCount()));
-            ui->Name->setStyleSheet("color: red; background-color: white;");
-            ui->CardCount->setStyleSheet("color: red; background-color: white;");
-
-            ui->Name->adjustSize();
-            ui->CardCount->adjustSize();
-        } else {
-            qDebug() << "Error: QLabel widgets are not properly initialized.";
-        }
-    }
+    // Install event filter to detect hover and hide/show the button
+    container->installEventFilter(this);
 }
 
-// Debug button
-void MainWindow::on_pushButton_6_clicked() {
-    ui->deckWidget->isHidden() ? ui->deckWidget->show() : ui->deckWidget->hide();
+bool MainWindow::updateTableRow(const QString& id){
+    for (int row = 0; row < ui->CardList->rowCount(); ++row) {
+        QTableWidgetItem* item = ui->CardList->item(row, 0);
+        if (item && item->data(Qt::UserRole).toString() == id){
+
+        }
+    }
+
+    return false;
 }
 
 // Action Buttons

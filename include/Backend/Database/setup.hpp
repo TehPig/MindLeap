@@ -23,4 +23,4 @@ public:
     void initialize();
 };
 
-#endif // SETUP_HPP
+#endif

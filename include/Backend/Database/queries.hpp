@@ -11,7 +11,7 @@ inline auto CREATE_USERS_TABLE = R"(
 inline auto CREATE_DECKS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Decks (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
+        name TEXT NOT NULL UNIQUE,
         description TEXT
     );
 )";
@@ -19,8 +19,9 @@ inline auto CREATE_DECKS_TABLE = R"(
 inline auto CREATE_CARDS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Cards (
         id TEXT PRIMARY KEY,
-        question TEXT NOT NULL,
-        answer TEXT NOT NULL
+        question TEXT NOT NULL UNIQUE,
+        answer TEXT NOT NULL,
+        type TEXT NOT NULL DEFAULT 'New'
     );
 )";
 
@@ -128,6 +129,12 @@ inline auto CARD_STATS_USER_INDEX = R"(
 )";
 inline auto CARD_STATS_DATE_INDEX = R"(
     CREATE INDEX IF NOT EXISTS idx_card_stats_date ON CardStats(date);
+)";
+inline auto CARD_STATS_CARD_USER_INDEX = R"(
+    CREATE INDEX IF NOT EXISTS idx_card_stats_card_user ON CardStats(id, user_id);
+)";
+inline auto CARD_STATS_LAST_SEEN_INDEX = R"(
+    CREATE INDEX IF NOT EXISTS idx_card_stats_last_seen ON CardStats(last_seen);
 )";
 
 #endif

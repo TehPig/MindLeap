@@ -36,10 +36,16 @@ public:
 
     // Database Operations
     // User
-    bool create() override;
+    bool create() override; // add ability to create default user
     bool _delete() const override;
 
+    // bool findOrCreate() const; // Find deck by name or ID
+
+    User fetch() const;
+
     bool select() const;
+    static User fetchSelected();
+
     bool rename(const QString& username);
 
     static std::vector<User> listUsers();

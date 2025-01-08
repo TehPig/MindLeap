@@ -22,6 +22,7 @@ private:
 public:
     // Constructors
     CardStats(const QString& card_id, const QString& user_id);
+    CardStats();
 
     // Getters
     QString getCardID() const;
