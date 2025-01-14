@@ -18,19 +18,16 @@ private:
     QDate date;
     int cards_seen;
     int time_spent_seconds;
-    int average_interval;
 
 public:
     // Constructors
-    DeckStats(const QString& user_id, const QString& deck_id, const QDate& date, const int& cards_seen, const int& time_spent_seconds, const int& average_interval);
+    DeckStats(const QString& user_id, const QString& deck_id, const QDate& date, const int& cards_seen, const int& time_spent_seconds);
     DeckStats(const QString& user_id, const QString& deck_id);
     DeckStats();
 
     // Getters
-    int getTotalCards() const;
     int getCardsSeen() const;
     int getTimeSpentSeconds() const;
-    int getAverageInterval() const;
 
     // Setters
     void setDeckID(const QString& id) { deck_id = id; }

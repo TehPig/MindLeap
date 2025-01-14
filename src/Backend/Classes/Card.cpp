@@ -34,30 +34,9 @@ QString Card::getAnswer() const { return this->answer; }
 // Get Card Type
 CardType Card::getType() const { return this->type; }
 
-// Get Repetitions
-int Card::getRepetitions() const { return repetitions; }
-
-// Get ease factor
-double Card::getEaseFactor() const { return easeFactor; }
-
-// Get interval
-double Card::getInterval() const { return interval; }
-
 // Setters
-// Set which algorithm to use
-void Card::setSM2(const bool state) { this->useSM2 = state; }
-
 // Set Card Type
 void Card::setType(const CardType type) { this->type = type; }
-
-// Set Repetitions
-void Card::setRepetitions(const int value) { repetitions = value; }
-
-// Set ease factor
-void Card::setEaseFactor(const double value) { easeFactor = value; }
-
-// Set interval
-void Card::setInterval(const double value) { interval = value; }
 
 // Database Operations
 // Create Card

@@ -17,10 +17,6 @@ private:
     QString id;
     QString question;
     QString answer;
-    float easeFactor = 2.5;
-    int interval = 1;
-    int repetitions = 0;
-    bool useSM2 = false;
     CardType type = CardType::New;
 
     CardStats stats;

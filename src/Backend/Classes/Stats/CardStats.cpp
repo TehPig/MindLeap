@@ -12,9 +12,17 @@
 #include "Backend/Database/setup.hpp"
 
 // Constructors
-CardStats::CardStats(const QString& card_id, const QString& user_id, const QDate& date, const int& times_seen, const int& time_spent_seconds, const int& time_to_reappear, const QDateTime& last_seen)
-    : card_id(card_id), user_id(user_id), date(date), times_seen(times_seen), time_spent_seconds(time_spent_seconds), time_to_reappear(time_to_reappear), last_seen(last_seen) {}
-CardStats::CardStats(const QString& card_id, const QString& user_id) : card_id(card_id), user_id(user_id), times_seen(0), time_spent_seconds(0), time_to_reappear(0) {}
+CardStats::CardStats(
+    const QString& card_id,
+    const QString& user_id,
+    const QDate& date,
+    const int& times_seen,
+    const int& time_spent_seconds,
+    const QDateTime& last_seen,
+    const float& easeFactor,
+    const int& interval,
+    const int& repetitions) : card_id(card_id), user_id(user_id), date(date), times_seen(times_seen), time_spent_seconds(time_spent_seconds), last_seen(last_seen), easeFactor(easeFactor), interval(interval), repetitions(repetitions) {}
+CardStats::CardStats(const QString& card_id, const QString& user_id) : card_id(card_id), user_id(user_id), times_seen(0), time_spent_seconds(0) {}
 // Default constructor
 CardStats::CardStats() = default;
 
@@ -27,12 +35,16 @@ int CardStats::getTimesSeen() const { return times_seen; }
 
 int CardStats::getTimeSpentSeconds() const { return time_spent_seconds; }
 
-int CardStats::getTimeToReappear() const { return time_to_reappear; }
-
 QDateTime CardStats::getLastSeen() const { return last_seen; }
 
+float CardStats::getEaseFactor() const { return easeFactor; }
+
+int CardStats::getInterval() const { return interval; }
+
+int CardStats::getRepetitions() const { return repetitions; }
+
 // Setters
-int CardStats::setTimeToReappear(const int time) { return time_to_reappear = time; }
+
 
 // Database Operations
 // Load stats from database
@@ -55,8 +67,10 @@ Stats* CardStats::loadStats() {
     this->date = query.value("date").toDate();
     this->times_seen = query.value("times_seen").toInt();
     this->time_spent_seconds = query.value("time_spent_seconds").toInt();
-    this->time_to_reappear = query.value("time_to_reappear").toInt();
     this->last_seen = query.value("last_seen").toDateTime();
+    this->easeFactor = query.value("easeFactor").toFloat();
+    this->interval = query.value("interval").toInt();
+    this->repetitions = query.value("repetitions").toInt();
 
     return new CardStats(
         this->card_id,
@@ -64,8 +78,10 @@ Stats* CardStats::loadStats() {
         this->date,
         this->times_seen,
         this->time_spent_seconds,
-        this->time_to_reappear,
-        this->last_seen
+        this->last_seen,
+        this->easeFactor,
+        this->interval,
+        this->repetitions
     );
 }
 
@@ -107,11 +123,13 @@ void CardStats::updateStats(const StatsUpdateContext& context) {
 
 // Display stats for debugging
 void CardStats::displayStats() const {
-    qDebug() << QStringLiteral("Card ID: %1, User ID: %2, Times Seen: %3, Time Spent: %4, Time to Reappear: %5, Last Seen: %6")
+    qDebug() << QStringLiteral("Card ID: %1, User ID: %2, Times Seen: %3, Time Spent: %4, Last Seen: %5, Ease Factor: %6, Interval: %7, Repetitions: %8")
             .arg(card_id)
             .arg(user_id)
             .arg(times_seen)
             .arg(time_spent_seconds)
-            .arg(time_to_reappear)
-            .arg(last_seen.toString());
+            .arg(last_seen.toString())
+            .arg(easeFactor)
+            .arg(interval)
+            .arg(repetitions);
 }

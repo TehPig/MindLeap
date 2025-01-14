@@ -18,12 +18,23 @@ private:
     QDate date;
     int times_seen;
     int time_spent_seconds;
-    int time_to_reappear;
     QDateTime last_seen;
+    float easeFactor = 2.5;
+    int interval = 1;
+    int repetitions = 0;
 
 public:
     // Constructors
-    CardStats(const QString& card_id, const QString& user_id, const QDate& date, const int& times_seen, const int& time_spent_seconds, const int& time_to_reappear, const QDateTime& last_seen);
+    CardStats(
+        const QString& card_id,
+        const QString& user_id,
+        const QDate& date,
+        const int& times_seen,
+        const int& time_spent_seconds,
+        const QDateTime& last_seen,
+        const float& easeFactor,
+        const int& interval,
+        const int& repetitions);
     CardStats(const QString& card_id, const QString& user_id);
     CardStats();
 
@@ -32,11 +43,13 @@ public:
     QString getUserID() const;
     int getTimesSeen() const;
     int getTimeSpentSeconds() const;
-    int getTimeToReappear() const;
     QDateTime getLastSeen() const;
+    float getEaseFactor() const;
+    int getInterval() const;
+    int getRepetitions() const;
 
     // Setters
-    int setTimeToReappear(int time);
+    
 
     // Database Operations
     // Load stats from database

@@ -125,7 +125,7 @@ inline auto CREATE_CARD_STATS_TABLE = R"(
         date DATE NOT NULL,
         times_seen INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
-        intervaL TIMESTAMP DEFAULT 0,
+        interval TIMESTAMP DEFAULT 0,
         ease_factor FLOAT DEFAULT 2.5,
         repetitions INTEGER DEFAULT 0,
         last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
