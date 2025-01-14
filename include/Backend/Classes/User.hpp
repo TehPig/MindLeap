@@ -17,6 +17,7 @@ private:
     QString username;
     QString id;
     std::vector<Deck> decks;
+    QString user_id;
     //UserStats stats;
 
 public:

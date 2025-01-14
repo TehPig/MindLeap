@@ -1,7 +1,9 @@
 #ifndef DECK_H
 #define DECK_H
 
+#include <vector>
 #include <queue>
+
 #include <QString>
 
 #include "Backend/Classes/Base/Entity.hpp"
@@ -18,7 +20,7 @@ private:
 
 public:
     // Constructors
-    Deck(const QString& name, const std::vector<Card>& c);
+    Deck(const QString& name, const std::queue<Card>& c);
     Deck(const QString& name, const QString& id);
     Deck(const QString& name_or_id);
     Deck();
@@ -47,6 +49,9 @@ public:
 
     // Studying
     bool study();
+    bool processCardResponse(Card& card, int buttonPressed);
+    bool endStudy() const;
+
     Card getNextCard();
 
     // Stats

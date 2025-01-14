@@ -1,4 +1,3 @@
-// Card.hpp
 #ifndef CARD_H
 #define CARD_H
 
@@ -37,20 +36,26 @@ public:
     QString getID() const;
     QString getQuestion() const;
     QString getAnswer() const;
-
     CardType getType() const;
+
+    int getRepetitions() const;
+    double getEaseFactor() const;
+    double getInterval() const;
 
     // Setters
     void setSM2(bool state);
     void setType(CardType type);
+
+    void setRepetitions(int value);
+    void setEaseFactor(double value);
+    void setInterval(double value);
 
     // Database Operations
     bool create() override;
     bool _delete() const override;
 
     // Display related
-    void updateCard(int quality); // Note: Adjust ease_factor, interval, repetitions (for sm-2 algorithm)
-    static int calculateNextInterval(int buttonPressed, int currentInterval);
+    void update(const StatsUpdateContext &context); // Note: Adjust ease_factor, interval, repetitions (for sm-2 algorithm)
 
     // Stats
     void getStats() const override;

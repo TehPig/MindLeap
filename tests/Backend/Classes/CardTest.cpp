@@ -1,5 +1,4 @@
-#define CATCH_CONFIG_MAIN
-#include <Backend/Libraries/catch.hpp>
+#include <catch2/catch_all.hpp>
 
 // Example test case
 TEST_CASE("Example Test", "[example]") {

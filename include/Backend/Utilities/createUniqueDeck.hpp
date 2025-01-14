@@ -5,6 +5,8 @@
 #ifndef CREATEUNIQUEDECK_HPP
 #define CREATEUNIQUEDECK_HPP
 
-bool createUniqueDeck(const QString &name);
+#include <QString>
+
+QString createUniqueDeck(const QString &name);
 
 #endif

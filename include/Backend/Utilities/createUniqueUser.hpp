@@ -7,6 +7,6 @@
 
 #include <QString>
 
-bool createUniqueUser(const QString &username);
+QString createUniqueUser(const QString &username);
 
 #endif

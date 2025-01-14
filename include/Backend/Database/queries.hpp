@@ -47,6 +47,18 @@ inline auto CREATE_USERS_DECKS_TABLE = R"(
     );
 )";
 
+// Settings tables
+
+inline auto CREATE_DECK_SETTINGS_TABLE = R"(
+    CREATE TABLE IF NOT EXISTS DeckSettings (
+        id TEXT PRIMARY KEY,
+        daily_new_card_limit INTEGER DEFAULT 20,
+        max_review_cards INTEGER DEFAULT 100,
+        algorithm TEXT DEFAULT 'SM2',
+        FOREIGN KEY(deck_id) REFERENCES Decks(id) ON DELETE CASCADE
+    );
+)";
+
 // Utility tables
 
 inline auto CREATE_SAVED_USER_TABLE = R"(
@@ -58,13 +70,12 @@ inline auto CREATE_SAVED_USER_TABLE = R"(
 
 // Stats tables
 
-// Stats include
+// User Stats include
 // Time spent in seconds
 // Number of cards viewed
 // List hard and easy cards
 // Times used the app within the day
 // Stats for each button (again, hard, good, easy)
-
 inline auto CREATE_USER_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS UserStats (
         id TEXT PRIMARY KEY,
@@ -85,10 +96,11 @@ inline auto CREATE_DECK_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS DeckStats (
         id TEXT NOT NULL,
         user_id TEXT NOT NULL,
-        total_cards INTEGER DEFAULT 0,
+        date DATE NOT NULL,
         cards_seen INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
         average_interval INTEGER DEFAULT 0,
+        session_start_time TIMESTAMP,
         PRIMARY KEY(user_id, id),
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE,
         FOREIGN KEY(id) REFERENCES Decks(id) ON DELETE CASCADE
@@ -106,7 +118,6 @@ inline auto CREATE_DECK_STATS_TABLE = R"(
 // - harder cards reappear sooner e.g., 1 minute, 10 minutes, 1 day, 3 days
 // - easier cards reappear later e.g., 1 day, 3 days, 1 week, 1 month
 // Last seen timestamp (can be used to calculate time to reappear)
-
 inline auto CREATE_CARD_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS CardStats (
         id TEXT PRIMARY KEY,
@@ -114,8 +125,11 @@ inline auto CREATE_CARD_STATS_TABLE = R"(
         date DATE NOT NULL,
         times_seen INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
-        time_to_reappear INTEGER DEFAULT 0,
+        intervaL TIMESTAMP DEFAULT 0,
+        ease_factor FLOAT DEFAULT 2.5,
+        repetitions INTEGER DEFAULT 0,
         last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        card_start_time TIMESTAMP,
         FOREIGN KEY(id) REFERENCES Cards(id) ON DELETE CASCADE,
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
     );

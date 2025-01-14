@@ -6,6 +6,7 @@
 #define DECKSTATS_HPP
 
 #include <QString>
+#include <QDate>
 
 #include "Backend/Utilities/statsUpdateContext.hpp"
 #include "Backend/Classes/Base/Stats.hpp"
@@ -14,14 +15,16 @@ class DeckStats final : public Stats {
 private:
     QString user_id;
     QString deck_id;
-    int total_cards;
+    QDate date;
     int cards_seen;
     int time_spent_seconds;
     int average_interval;
 
 public:
     // Constructors
+    DeckStats(const QString& user_id, const QString& deck_id, const QDate& date, const int& cards_seen, const int& time_spent_seconds, const int& average_interval);
     DeckStats(const QString& user_id, const QString& deck_id);
+    DeckStats();
 
     // Getters
     int getTotalCards() const;
@@ -30,9 +33,15 @@ public:
     int getAverageInterval() const;
 
     // Setters
-
+    void setDeckID(const QString& id) { deck_id = id; }
+    void setUserID(const QString& id) { user_id = id; }
 
     // Database Operations
+    // Load stats from database
+    Stats* loadStats() override;
+    // Initialize stats to database
+    bool initializeStats() const override;
+
     // Update stats based on user interactions
     void updateStats(const StatsUpdateContext& context) override;
     // Display stats for debugging

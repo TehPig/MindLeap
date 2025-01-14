@@ -11,6 +11,9 @@ class Stats {
 public:
     virtual ~Stats() = default;
 
+    virtual Stats* loadStats() = 0;
+    virtual bool initializeStats() const = 0;
+
     virtual void updateStats(const StatsUpdateContext& context) = 0;
     virtual void displayStats() const = 0;
 };

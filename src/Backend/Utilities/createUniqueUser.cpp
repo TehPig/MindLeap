@@ -1,15 +1,16 @@
 //
 // Created by TehPig on 1/7/2025.
 //
-
 #include <QString>
 #include <QSqlQuery>
 #include <QDebug>
+#include <QSqlError>
 
 #include "Backend/Utilities/createUniqueUser.hpp"
 #include "Backend/Database/setup.hpp"
+#include "Backend/Utilities/generateID.hpp"
 
-bool createUniqueUser(const QString& username) {
+QString createUniqueUser(const QString& username) {
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
     QString userId;
@@ -18,7 +19,7 @@ bool createUniqueUser(const QString& username) {
     do {
         // Generate a unique ID
         userId = QString::fromStdString(generateID());
-        qDebug() << "[Debug - User] Generated ID: " << userId << " for name " << username;
+        qDebug() << "[Debug - Deck] Generated ID: " << userId << " for name " << username;
 
         // Insert the user into the Users table
         query.prepare(QStringLiteral("INSERT INTO Users (id, username) VALUES (?, ?);"));
@@ -30,15 +31,12 @@ bool createUniqueUser(const QString& username) {
                 qDebug() << "[DB] ID already exists, generating a new one.";
                 idExists = true;
             } else {
-                qDebug() << "[DB] Failed to create user: " << query.lastError().text();
-                return false;
+                qDebug() << "[DB] Failed to create deck: " << query.lastError().text();
+                return {};
             }
-        } else {
-            idExists = false;
-        }
+        } else idExists = false;
     } while (idExists);
 
     qDebug() << "User created successfully with ID: " << userId;
-    this->id = userId;
-    return true;
+    return userId; // Return the generated user ID, successful creation
 }

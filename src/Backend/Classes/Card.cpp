@@ -13,12 +13,13 @@
 
 // Constructors
 Card::Card(const QString& id, const QString& q, const QString& a, const CardType& type)
-    : id(id), question(q), answer(a), type(type) {}
+    : id(id), question(q), answer(a), type(type), stats({}) {}
 
 Card::Card(const QString& q, const QString& a)
 : question(q), answer(a) {}
 Card::Card(const QString& id)
     : id(id) {}
+Card::Card() = default;
 
 // Getters
 // Get Card ID
@@ -33,14 +34,30 @@ QString Card::getAnswer() const { return this->answer; }
 // Get Card Type
 CardType Card::getType() const { return this->type; }
 
+// Get Repetitions
+int Card::getRepetitions() const { return repetitions; }
+
+// Get ease factor
+double Card::getEaseFactor() const { return easeFactor; }
+
+// Get interval
+double Card::getInterval() const { return interval; }
+
 // Setters
 // Set which algorithm to use
-void Card::setSM2(const bool state) {
-    this->useSM2 = state;
-}
+void Card::setSM2(const bool state) { this->useSM2 = state; }
 
 // Set Card Type
 void Card::setType(const CardType type) { this->type = type; }
+
+// Set Repetitions
+void Card::setRepetitions(const int value) { repetitions = value; }
+
+// Set ease factor
+void Card::setEaseFactor(const double value) { easeFactor = value; }
+
+// Set interval
+void Card::setInterval(const double value) { interval = value; }
 
 // Database Operations
 // Create Card
@@ -54,7 +71,7 @@ bool Card::create() {
 
     do {
         cardId = QString::fromStdString(generateID());
-        qDebug() << "Card >> Generated ID: " << cardId;
+        qDebug() << "[Debug - Card] Generated ID: " << cardId << " for question " << this->question;
 
         query.prepare("INSERT INTO Cards (id, question, answer) VALUES (?, ?, ?);");
         query.addBindValue(cardId);
@@ -62,15 +79,18 @@ bool Card::create() {
         query.addBindValue(this->answer);
 
         if (!query.exec()) {
-            qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
-            return false;
-        }
-
-        idExists = query.numRowsAffected() == 0;
+            if (query.lastError().nativeErrorCode() == QStringLiteral("19")) {
+                qDebug() << "[DB] ID already exists, generating a new one.";
+                idExists = true;
+            } else {
+                qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
+                return false;
+            }
+        } else idExists = false;
     } while (idExists);
 
-    this->id = cardId;
     qDebug() << "Card created successfully with ID: " << cardId;
+    this->id = cardId;
     return true;
 }
 
@@ -94,51 +114,21 @@ bool Card::_delete() const {
     return true;
 }
 
-void Card::updateCard(const int quality) {
-    const StatsUpdateContext context = {
-        quality,               // Button pressed (1-4)
-        30,                    // Time spent (example value)
-        QDateTime::currentDateTime()
-    };
+void Card::update(const StatsUpdateContext& context) {
+    // Update statistics via CardStats
+    stats.updateStats(context);
 
-    this->stats.times_seen++;
-    this->stats.time_spent_seconds += context.time_spent;
-    this->stats.last_seen = QDateTime::currentDateTime();
+    // Ensure stats reflect the updated interval
+    stats.setTimeToReappear(interval);
 
-    if (useSM2) {
-        // SM-2 Algorithm logic
-        repetitions = (quality < 3) ? 0 : repetitions + 1;
-
-        if (quality == 1) { // "Again"
-            interval = 1;
-        } else {
-            interval = (repetitions == 1) ? 1 : interval * easeFactor;
-            easeFactor += 0.1 - (4 - quality) * (0.08 + (4 - quality) * 0.02);
-            if (easeFactor < 1.3) easeFactor = 1.3;
-        }
-    } else {
-        // Leitner System logic
-        switch (quality) {
-            case 1: interval = 0; break; // Immediate retry
-            case 2: interval = 1; break; // 1 day
-            case 3: interval = 3; break; // 3 days
-            case 4: interval = 7; break; // 7 days
-            default: interval = 1; break;
-        }
+    if (interval > 1.0) {
+        qDebug() << "Card skipped for today (interval > 1 day).";
+        return;
     }
 
-    stats.time_to_reappear = interval;
-}
-
-// Calculate Card next interval
-int Card::calculateNextInterval(const int buttonPressed, const int currentInterval) {
-    switch (buttonPressed) {
-        case 1: return currentInterval * 0.5; // Again
-        case 2: return currentInterval * 1.2; // Hard
-        case 3: return currentInterval * 2.0; // Good
-        case 4: return currentInterval * 3.0; // Easy
-        default: return currentInterval;
-    }
+    // Log for debugging
+    qDebug() << "Card Updated:";
+    stats.displayStats();
 }
 
 // Get Card stats

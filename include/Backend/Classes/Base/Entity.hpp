@@ -9,8 +9,12 @@
 
 class Entity {
 protected:
-    void logAction(const QString& action) const;
-    bool validateID(const QString& id) const;
+    void logAction(const QString& action) const {
+        qDebug() << "[Entity] Action performed:" << action;
+    }
+    bool Entity::validateID(const QString& id) const {
+        return !id.isEmpty();
+    }
 
 public:
     virtual ~Entity() = default;

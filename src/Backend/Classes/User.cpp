@@ -9,16 +9,14 @@
 #include "Backend/Utilities/createUniqueUser.hpp"
 
 // Constructors
-//User::User(const QString& u, const QString& i, const std::vector<Deck> &d)
-//    : username(u), id(i), decks(d) {}
 User::User(const QString& name, const QString& id)
     : username(name), id(id) {}
 User::User(const QString& name_or_id) {
-    if (name_or_id.startsWith("n_")) this->username = name_or_id.trimmed();
+    if (name_or_id.startsWith("n_")) this->username = name_or_id.trimmed().mid(2);
     else this->id = name_or_id.trimmed();
 }
 // For the user of listUsers function
-User::User() {}
+User::User() = default;
 
 // Getters
 // Get username
@@ -33,17 +31,20 @@ QString User::getUsername() const {
 
         if (!query.exec() || !query.next()){
             qDebug() << "[DB] Failed to execute query: " << query.lastError().text();
-            return QString();
+            return {};
         }
 
         return query.value(0).toString();
     }
-    return this->username.isEmpty() ? QString() : this->username;
+
+    if (this->username.isEmpty()) return {};
+    return this->username;
 }
 
 // Get user ID
 QString User::getID() const {
-    return this->id.isEmpty() ? QString() : this->id;
+    if (this->id.isEmpty()) return {};
+    return this->id;
 }
 
 // Setters
@@ -69,10 +70,16 @@ bool User::create() {
             return false;
         }
 
-        return createUniqueUser("Default");
+        const QString res = createUniqueUser("Default");
+        if (res.isEmpty()) return false;
+
+        return true;
     }
 
-    return createUniqueUser(this->username.mid(2));
+    const QString res = createUniqueUser(this->username);
+    if (res.isEmpty()) return false;
+
+    return true;
 }
 
 // Delete a user
@@ -100,7 +107,7 @@ bool User::_delete() const {
 User User::fetch() const {
     if (this->id.isEmpty() && this->username.isEmpty()) {
         qDebug() << "[DB] User Fetch - Unable to fetch without ID or username.";
-        return User();
+        return {};
     }
 
     const Database *db = Database::getInstance();
@@ -115,13 +122,17 @@ User User::fetch() const {
 
         if (!query.exec() || !query.next()) {
             qDebug() << "[DB] No user found with the given ID or username.";
-            return User();
+            return {};
         }
 
-        return User(query.value("username").toString(), query.value("id").toString());
+        return {
+            query.value("username").toString(), query.value("id").toString()
+        };
     }
 
-    return User(query.value("username").toString(), query.value("id").toString());
+    return {
+        query.value("username").toString(), query.value("id").toString()
+    };
 }
 
 // Find the selected user
@@ -133,10 +144,10 @@ User User::fetchSelected() {
 
     if (!query.exec() || !query.next()) {
         qDebug() << "[DB] No selected user found.";
-        return User();
+        return {};
     }
 
-    return User(query.value("id").toString());
+    return { query.value("id").toString() };
 }
 
 // Select user

@@ -57,7 +57,16 @@ endif()
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -flto")
 set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} -flto")
-#[===[
+
+# Add Catch2 for tests
+include(FetchContent)
+FetchContent_Declare(
+        Catch2
+        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+        GIT_TAG v3.8.0 # Replace with the desired version
+)
+FetchContent_MakeAvailable(Catch2)
+
 # Tests EXE
 file(GLOB_RECURSE BACKEND_SOURCES "${SRC_DIR}/*.cpp")
 file(GLOB_RECURSE BACKEND_HEADERS "${INCLUDE_DIR}/*.hpp")
@@ -75,11 +84,10 @@ add_executable(${PROJECT_NAME}_tests
         ${BACKEND_HEADERS}
         ${TEST_SOURCES}
 )
+
 # Include directories for test executable
 target_include_directories(${PROJECT_NAME}_tests PRIVATE
-        ${INCLUDE_DIR}
-        ${LIBRARIES_DIR} # This ensures catch.hpp is found
-)
+        ${INCLUDE_DIR})
 
 # Disable AUTOUIC, AUTOMOC, AUTORCC for the tests
 set_target_properties(${PROJECT_NAME}_tests PROPERTIES
@@ -89,9 +97,22 @@ set_target_properties(${PROJECT_NAME}_tests PROPERTIES
         AUTORCC OFF
 )
 
-# Link Qt libraries if needed
+# Link Catch2 with the test executable
 target_link_libraries(${PROJECT_NAME}_tests PRIVATE
+        Catch2::Catch2WithMain # Links Catch2 and provides the main function
         Qt6::Core
         Qt6::Sql
 )
-]===]
+
+# Copy required Qt DLLs to the build directory
+add_custom_command(TARGET ${PROJECT_NAME}_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${Qt6_DIR}/../../../bin/Qt6Core.dll"
+        "${Qt6_DIR}/../../../bin/Qt6Sql.dll"
+        $<TARGET_FILE_DIR:${PROJECT_NAME}_tests>
+)
+
+# Enable CTest
+include(CTest)
+include(Catch)
+catch_discover_tests(${PROJECT_NAME}_tests)
