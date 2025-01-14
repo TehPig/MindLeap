@@ -49,6 +49,7 @@ Stats* CardStats::loadStats() {
         return {};
     }
 
+    // Load stats into object - ADD PENDING STATS
     this->card_id = query.value("id").toString();
     this->user_id = query.value("user_id").toString();
     this->date = query.value("date").toDate();
@@ -99,7 +100,6 @@ bool CardStats::initializeStats() const {
 
 // Update stats based on user interactions
 void CardStats::updateStats(const StatsUpdateContext& context) {
-
     times_seen++;
     time_spent_seconds += context.time_spent;
     last_seen = QDateTime::currentDateTime();
