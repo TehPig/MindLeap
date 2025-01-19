@@ -70,7 +70,7 @@ Make sure the following tools are installed:
 
 Clone the repository or download the source files:
 ```
-git clone https://github.com/yourusername/MyApp.git
+git clone https://github.com/TehPigYT/anki-project.git
 ```
 Alternatively, download the ZIP file of the repository and extract it.
 
