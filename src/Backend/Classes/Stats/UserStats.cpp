@@ -46,7 +46,7 @@ int UserStats::getPressedEasy() const { return pressed_easy; }
 int UserStats::getTimeSpentSeconds() const { return time_spent_seconds; }
 
 // Setters
-void UserStats::setUserID(const QString& id) { this->user_id = id; }
+void UserStats::setUserID(const QString& user_id) { this->user_id = user_id; }
 
 // Database Operations
 // Load stats from database
