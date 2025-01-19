@@ -7,6 +7,8 @@
 
 #include <QString>
 
-QString createUniqueDeck(const QString &name);
+#include <Backend/Classes/Stats/DeckStats.hpp>
+
+QString createUniqueDeck(const QString &name, DeckStats& stats);
 
 #endif

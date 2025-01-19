@@ -5,11 +5,11 @@
 #ifndef ALGORITHM_HPP
 #define ALGORITHM_HPP
 
-#include "Backend/Classes/Card.hpp"
+#include "Backend/Classes/Stats/CardStats.hpp"
 
 class Algorithm {
 public:
-    virtual void calculateInterval(Card& card, int buttonPressed) = 0;
+    virtual void calculateInterval(CardStats& card, int buttonPressed) = 0;
     virtual ~Algorithm() = default;
 };
 

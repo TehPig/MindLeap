@@ -5,9 +5,9 @@
 #include <sstream>
 #include <iomanip>
 
-#include <Backend/Utilities/generateID.hpp>
+#include "Backend/Utilities/generateID.hpp"
 
-std::string generateID() {
+QString generateID() {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> dis(0, 255);
@@ -17,5 +17,5 @@ std::string generateID() {
         ss << std::hex << std::setw(2) << std::setfill('0') << dis(gen);
     }
 
-    return ss.str();
+    return QString::fromStdString(ss.str());
 }

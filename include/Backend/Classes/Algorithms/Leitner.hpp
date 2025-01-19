@@ -6,11 +6,11 @@
 #define LEITNER_HPP
 
 #include "Backend/Classes/Base/Algorithm.hpp"
-#include "Backend/Classes/Card.hpp"
+#include "Backend/Classes/Stats/CardStats.hpp"
 
-class LeitnerAlgorithm : public Algorithm {
+class LeitnerAlgorithm final : public Algorithm {
 public:
-    static void calculateInterval(Card& card, int buttonPressed) override;
+    void calculateInterval(CardStats& stats, int buttonPressed) override;
 
 };
 

@@ -34,27 +34,21 @@ public:
     QString getAnswer() const;
     CardType getType() const;
 
-    int getRepetitions() const;
-    double getEaseFactor() const;
-    double getInterval() const;
-
     // Setters
-    void setSM2(bool state);
     void setType(CardType type);
-
-    void setRepetitions(int value);
-    void setEaseFactor(double value);
-    void setInterval(double value);
 
     // Database Operations
     bool create() override;
     bool _delete() const override;
 
     // Display related
-    void update(const StatsUpdateContext &context); // Note: Adjust ease_factor, interval, repetitions (for sm-2 algorithm)
+    bool update(const StatsUpdateContext &context); // Note: Adjust ease_factor, interval, repetitions (for sm-2 algorithm)
 
     // Stats
     void getStats() const override;
+
+    // Validator
+    bool isEmpty() const;
 
     // Other
     static CardType stringToType(const QString& str);

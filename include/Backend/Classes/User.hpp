@@ -18,7 +18,8 @@ private:
     QString id;
     std::vector<Deck> decks;
     QString user_id;
-    //UserStats stats;
+
+    UserStats stats;
 
 public:
     // Constructors
@@ -45,9 +46,11 @@ public:
     User fetch() const;
 
     bool select() const;
-    static User fetchSelected();
+    bool fetchSelected();
 
     bool rename(const QString& username);
+
+    bool updateLaunchStats() const;
 
     static std::vector<User> listUsers();
     std::vector<Deck> listDecks() const;

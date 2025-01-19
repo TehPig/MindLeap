@@ -7,6 +7,8 @@
 
 #include <QString>
 
-QString createUniqueUser(const QString &username);
+#include "Backend/Classes/Stats/UserStats.hpp"
+
+QString createUniqueUser(const QString &username, UserStats &stats);
 
 #endif

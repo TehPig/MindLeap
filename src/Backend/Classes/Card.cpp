@@ -1,7 +1,3 @@
-// Card.cpp
-#include <sstream>
-#include <random>
-
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDebug>
@@ -41,6 +37,8 @@ void Card::setType(const CardType type) { this->type = type; }
 // Database Operations
 // Create Card
 bool Card::create() {
+    logAction("Create Card");
+
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
@@ -49,8 +47,8 @@ bool Card::create() {
     bool idExists;
 
     do {
-        cardId = QString::fromStdString(generateID());
-        qDebug() << "[Debug - Card] Generated ID: " << cardId << " for question " << this->question;
+        cardId = generateID();
+        qDebug() << "[Debug - Card] Generated ID" << cardId << "for question" << this->question;
 
         query.prepare("INSERT INTO Cards (id, question, answer) VALUES (?, ?, ?);");
         query.addBindValue(cardId);
@@ -68,12 +66,13 @@ bool Card::create() {
         } else idExists = false;
     } while (idExists);
 
-    qDebug() << "Card created successfully with ID: " << cardId;
     this->id = cardId;
     return true;
 }
 
 bool Card::_delete() const {
+    logAction("Delete Card");
+
     if (this->id.isEmpty()) {
         qDebug() << "[DB] Card Delete - Missing ID.";
         return false;
@@ -93,26 +92,30 @@ bool Card::_delete() const {
     return true;
 }
 
-void Card::update(const StatsUpdateContext& context) {
+bool Card::update(const StatsUpdateContext& context) {
+    logAction("Update Card Stats");
     // Update statistics via CardStats
-    stats.updateStats(context);
-
-    // Ensure stats reflect the updated interval
-    stats.setTimeToReappear(interval);
-
-    if (interval > 1.0) {
-        qDebug() << "Card skipped for today (interval > 1 day).";
-        return;
+    const bool status = stats.update(context);
+    if (status == false) {
+        qDebug() << "Failed to update card stats.";
+        return false;
     }
 
     // Log for debugging
     qDebug() << "Card Updated:";
-    stats.displayStats();
+    stats.display();
+
+    return true;
 }
 
 // Get Card stats
 void Card::getStats() const {
     qDebug() << "Card Stats";
+}
+
+// Validator
+bool Card::isEmpty() const {
+    return this->id.isEmpty() && this->question.isEmpty() && this->answer.isEmpty();
 }
 
 // Other

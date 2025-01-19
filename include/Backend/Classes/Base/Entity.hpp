@@ -6,14 +6,13 @@
 #define ENTITY_HPP
 
 #include <QString>
+#include <QDebug>
 
 class Entity {
 protected:
-    void logAction(const QString& action) const {
+    static void logAction(const QString& action) {
+        qDebug() << "====================================================";
         qDebug() << "[Entity] Action performed:" << action;
-    }
-    bool Entity::validateID(const QString& id) const {
-        return !id.isEmpty();
     }
 
 public:

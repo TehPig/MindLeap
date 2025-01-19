@@ -1,9 +1,10 @@
-#include "Frontend/customdialog.h"
-#include "Frontend/invalidinputbox.h"
 #include <QVBoxLayout>
 #include <QPushButton>
 #include <QFormLayout>
-#include <QMessageBox>  // Include for showing error messages
+#include <QMessageBox>
+
+#include "Frontend/Dialogs/customdialog.h"
+#include "Frontend/invalidinputbox.h"
 
 CustomDialog::CustomDialog(QWidget *parent)
     : QDialog(parent)

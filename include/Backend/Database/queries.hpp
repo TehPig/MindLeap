@@ -11,7 +11,7 @@ inline auto CREATE_USERS_TABLE = R"(
 inline auto CREATE_DECKS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Decks (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
         description TEXT
     );
 )";
@@ -19,7 +19,7 @@ inline auto CREATE_DECKS_TABLE = R"(
 inline auto CREATE_CARDS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS Cards (
         id TEXT PRIMARY KEY,
-        question TEXT NOT NULL UNIQUE,
+        question TEXT NOT NULL,
         answer TEXT NOT NULL,
         type TEXT NOT NULL DEFAULT 'New'
     );
@@ -55,7 +55,7 @@ inline auto CREATE_DECK_SETTINGS_TABLE = R"(
         daily_new_card_limit INTEGER DEFAULT 20,
         max_review_cards INTEGER DEFAULT 100,
         algorithm TEXT DEFAULT 'SM2',
-        FOREIGN KEY(deck_id) REFERENCES Decks(id) ON DELETE CASCADE
+        FOREIGN KEY(id) REFERENCES Decks(id) ON DELETE CASCADE
     );
 )";
 
@@ -78,7 +78,7 @@ inline auto CREATE_SAVED_USER_TABLE = R"(
 // Stats for each button (again, hard, good, easy)
 inline auto CREATE_USER_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS UserStats (
-        id TEXT PRIMARY KEY,
+        id TEXT NOT NULL,
         date DATE NOT NULL,
         cards_seen INTEGER DEFAULT 0,
         pressed_again INTEGER DEFAULT 0,
@@ -87,6 +87,7 @@ inline auto CREATE_USER_STATS_TABLE = R"(
         pressed_easy INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
         times_used INTEGER DEFAULT 0,
+        PRIMARY KEY(id, date),
         FOREIGN KEY(id) REFERENCES Users(id)
     );
 )";
@@ -97,11 +98,11 @@ inline auto CREATE_DECK_STATS_TABLE = R"(
         id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         date DATE NOT NULL,
+        cards_added INTEGER DEFAULT 0,
         cards_seen INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
-        average_interval INTEGER DEFAULT 0,
         session_start_time TIMESTAMP,
-        PRIMARY KEY(user_id, id),
+        PRIMARY KEY(user_id, id, date),
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE,
         FOREIGN KEY(id) REFERENCES Decks(id) ON DELETE CASCADE
     );
@@ -120,16 +121,17 @@ inline auto CREATE_DECK_STATS_TABLE = R"(
 // Last seen timestamp (can be used to calculate time to reappear)
 inline auto CREATE_CARD_STATS_TABLE = R"(
     CREATE TABLE IF NOT EXISTS CardStats (
-        id TEXT PRIMARY KEY,
+        id TEXT NOT NULL,
         user_id TEXT NOT NULL,
         date DATE NOT NULL,
         times_seen INTEGER DEFAULT 0,
         time_spent_seconds INTEGER DEFAULT 0,
-        interval TIMESTAMP DEFAULT 0,
+        interval INTEGER DEFAULT 0,
         ease_factor FLOAT DEFAULT 2.5,
         repetitions INTEGER DEFAULT 0,
-        last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_seen TIMESTAMP DEFAULT 0,
         card_start_time TIMESTAMP,
+        PRIMARY KEY(id, user_id, date),
         FOREIGN KEY(id) REFERENCES Cards(id) ON DELETE CASCADE,
         FOREIGN KEY(user_id) REFERENCES Users(id) ON DELETE CASCADE
     );

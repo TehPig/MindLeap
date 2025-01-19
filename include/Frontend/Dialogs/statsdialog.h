@@ -3,6 +3,8 @@
 
 #include <QDialog>
 
+#include "Backend/Classes/Stats/UserStats.hpp"
+
 namespace Ui {
 class StatsDialog;
 }
@@ -17,6 +19,9 @@ public:
 
 private:
     Ui::StatsDialog *ui;
+
+    void populateUserData(const UserStats& stats);
+    void populateDeckData();
 };
 
 #endif // STATSDIALOG_H

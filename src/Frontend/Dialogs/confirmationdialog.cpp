@@ -1,7 +1,8 @@
-#include "Frontend/confirmationdialog.h"
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
+
+#include "Frontend/Dialogs/confirmationdialog.h"
 
 ConfirmationDialog::ConfirmationDialog(const QString &additionalText, QWidget *parent)
     : QDialog(parent) {

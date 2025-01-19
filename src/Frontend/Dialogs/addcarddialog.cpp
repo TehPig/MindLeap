@@ -1,7 +1,8 @@
-#include "Frontend/addcarddialog.h"
+#include <QMessageBox>
+
+#include "Frontend/Dialogs/addcarddialog.h"
 #include "Frontend/invalidinputbox.h"
-#include "ui_addcarddialog.h"
-#include <qmessagebox.h>
+#include "Dialogs/ui_addcarddialog.h"
 
 AddCardDialog::AddCardDialog(QWidget *parent)
     : QDialog(parent)

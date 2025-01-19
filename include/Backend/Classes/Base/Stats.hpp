@@ -11,11 +11,11 @@ class Stats {
 public:
     virtual ~Stats() = default;
 
-    virtual Stats* loadStats() = 0;
-    virtual bool initializeStats() const = 0;
+    virtual Stats* load() = 0;
+    virtual bool initialize() const = 0;
 
-    virtual void updateStats(const StatsUpdateContext& context) = 0;
-    virtual void displayStats() const = 0;
+    virtual bool update(const StatsUpdateContext& context) = 0;
+    virtual void display() const = 0;
 };
 
 #endif

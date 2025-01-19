@@ -1,8 +1,9 @@
-#include "Frontend/hoverabletablewidget.h"
 #include <QEvent>
 #include <QPushButton>
 #include <QMouseEvent>
 #include <QDebug>
+
+#include "Frontend/hoverabletablewidget.h"
 
 HoverableTableWidget::HoverableTableWidget(QWidget *parent)
     : QTableWidget(parent), lastHoveredRow(-1) {

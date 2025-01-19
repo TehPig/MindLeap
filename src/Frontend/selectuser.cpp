@@ -1,12 +1,12 @@
-#include "Frontend/selectuser.h"
-#include "Frontend/customdialog.h"
-#include "Frontend/mainwindow.h"
-#include "forms/ui_selectuser.h"
-
 #include <QApplication>
 #include <QListWidget>
 #include <QListWidgetItem>
 #include <QStatusBar>
+
+#include "Frontend/selectuser.h"
+#include "Frontend/mainwindow.h"
+#include "Frontend/Dialogs/customdialog.h"
+#include "forms/ui_selectuser.h"
 
 selectuser::selectuser(QWidget *parent)
     : QMainWindow(parent)
@@ -50,8 +50,8 @@ void selectuser::on_Open_clicked() {
     this->close();
 
     MainWindow *main = new MainWindow();
-    main->show();
     main->setAttribute(Qt::WA_DeleteOnClose); // Delete Main Window on close
+    main->show();
 }
 
 void selectuser::on_Create_clicked() {

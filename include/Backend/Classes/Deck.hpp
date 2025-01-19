@@ -28,24 +28,29 @@ public:
     // Getters
     QString getName() const;
     QString getID() const;
+    int getStudyQueueSize() const;
 
     // Database Operations
     // Deck
     bool create() override; // add ability to create default deck
     bool _delete() const override;
 
-    Deck fetch() const;
+    bool fetch();
 
-    bool addCard(Card& card) const;
+    bool addCard(Card& card);
 
     //bool find() const; // Find a deck by name or ID
 
     bool rename(const QString& newName);
+    bool setAlgorithm(const QString& algorithm) const;
+
     bool setDescription(const QString& description) const;
     QString getDescription() const;
 
     std::vector<Card> listCards() const;
-    int getCardCount() const;
+    int getCardCount() const; // getCardCount and getCardInformation can be merged with a variable
+    std::vector<int> getCardInformation() const;
+    QString fetchAlgorithm() const;
 
     // Studying
     bool study();

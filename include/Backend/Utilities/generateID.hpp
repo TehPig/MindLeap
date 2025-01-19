@@ -7,6 +7,6 @@
 
 #include <QString>
 
-std::string generateID();
+QString generateID();
 
 #endif

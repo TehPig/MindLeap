@@ -21,11 +21,10 @@ private:
     int pressed_good;
     int pressed_easy;
     int time_spent_seconds;
-    int times_used;
 
 public:
     // Constructors
-    UserStats(const QString& user_id, const QDate& date, const int& cards_seen, const int& pressed_again, const int& pressed_hard, const int& pressed_good, const int& pressed_easy, const int& time_spent_seconds, const int& times_used);
+    UserStats(const QString& user_id, const QDate& date, const int& cards_seen, const int& pressed_again, const int& pressed_hard, const int& pressed_good, const int& pressed_easy, const int& time_spent_seconds);
     UserStats(const QString& user_id);
     UserStats();
 
@@ -36,21 +35,20 @@ public:
     int getPressedGood() const;
     int getPressedEasy() const;
     int getTimeSpentSeconds() const;
-    int getTimesUsed() const;
 
     // Setters
-
+    void setUserID(const QString& id);
 
     // Database Operations
     // Load stats from database
-    Stats* loadStats() override;
+    Stats* load() override;
     // Initialize stats to database
-    bool initializeStats() const override;
+    bool initialize() const override;
 
     // Update stats based on user interactions
-    void updateStats(const StatsUpdateContext& context) override;
+    bool update(const StatsUpdateContext& context) override;
     // Display stats for debugging
-    void displayStats() const override;
+    void display() const override;
 };
 
 #endif

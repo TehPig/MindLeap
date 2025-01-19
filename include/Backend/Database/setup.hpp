@@ -5,7 +5,6 @@
 #include <memory>
 #include <mutex>
 #include <QSqlDatabase>
-#include <QVariantList>
 
 class Database {
 private:
@@ -21,6 +20,7 @@ public:
     static Database* getInstance(const std::string &path = "app_data.db");
     QSqlDatabase getDB() const;
     void initialize();
+    void reset();
 };
 
 #endif

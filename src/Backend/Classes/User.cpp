@@ -5,7 +5,6 @@
 
 #include "Backend/Classes/User.hpp"
 #include "Backend/Database/setup.hpp"
-#include "Backend/Utilities/generateID.hpp"
 #include "Backend/Utilities/createUniqueUser.hpp"
 
 // Constructors
@@ -16,7 +15,7 @@ User::User(const QString& name_or_id) {
     else this->id = name_or_id.trimmed();
 }
 // For the user of listUsers function
-User::User() = default;
+User::User() : username(""), id("") {}
 
 // Getters
 // Get username
@@ -54,6 +53,8 @@ QString User::getID() const {
 
 // Create a new user in the database
 bool User::create() {
+    logAction("Create User");
+
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
@@ -61,7 +62,7 @@ bool User::create() {
         // Check if Default user exists
         query.prepare(QStringLiteral("SELECT COUNT(*) FROM Users WHERE username = 'Default';"));
         if (!query.exec()) {
-            qDebug() << "[DB] Failed to check for default user: " << query.lastError().text();
+            qDebug() << "[DB] Failed to check for default user:" << query.lastError().text();
             return false;
         }
 
@@ -70,20 +71,24 @@ bool User::create() {
             return false;
         }
 
-        const QString res = createUniqueUser("Default");
+        const QString res = createUniqueUser("Default", this->stats);
         if (res.isEmpty()) return false;
 
+        this->id = res;
         return true;
     }
 
-    const QString res = createUniqueUser(this->username);
+    const QString res = createUniqueUser(this->username, this->stats);
     if (res.isEmpty()) return false;
 
+    this->id = res;
     return true;
 }
 
 // Delete a user
 bool User::_delete() const {
+    logAction("Delete User");
+
     if (this->id.isEmpty()) {
         qDebug() << "[DB] User Delete - Missing ID.";
         return false;
@@ -96,7 +101,7 @@ bool User::_delete() const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to delete user: " << query.lastError().text();
+        qDebug() << "[DB] Failed to delete user:" << query.lastError().text();
         return false;
     }
 
@@ -105,6 +110,8 @@ bool User::_delete() const {
 
 // Fetch a user from the database
 User User::fetch() const {
+    logAction("Fetch User");
+
     if (this->id.isEmpty() && this->username.isEmpty()) {
         qDebug() << "[DB] User Fetch - Unable to fetch without ID or username.";
         return {};
@@ -136,7 +143,9 @@ User User::fetch() const {
 }
 
 // Find the selected user
-User User::fetchSelected() {
+bool User::fetchSelected() {
+    logAction("Fetch Selected User");
+
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
@@ -144,14 +153,17 @@ User User::fetchSelected() {
 
     if (!query.exec() || !query.next()) {
         qDebug() << "[DB] No selected user found.";
-        return {};
+        return false;
     }
 
-    return { query.value("id").toString() };
+    this->id = query.value(0).toString();
+    return true;
 }
 
 // Select user
 bool User::select() const {
+    logAction("Select User");
+
     if (this->id.isEmpty()) {
         qDebug() << "[DB] User Select - Missing ID.";
         return false;
@@ -186,16 +198,18 @@ bool User::select() const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to save selected user ID: " << query.lastError().text();
+        qDebug() << "[DB] Failed to save selected user ID:" << query.lastError().text();
         return false;
     }
 
-    qDebug() << "[DB] Selected User: " << username;
+    qDebug() << "[DB] Selected User" << username;
     return true;
 }
 
 // Rename a user
 bool User::rename(const QString &username) {
+    logAction("Rename User");
+
     if (this->id.isEmpty()) {
         qDebug() << "[DB] User Rename - Missing ID.";
         return false;
@@ -213,7 +227,7 @@ bool User::rename(const QString &username) {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to rename user: " << query.lastError().text();
+        qDebug() << "[DB] Failed to rename user:" << query.lastError().text();
         return false;
     }
 
@@ -222,8 +236,33 @@ bool User::rename(const QString &username) {
     return true;
 }
 
+// Update user stats on app launch
+bool User::updateLaunchStats() const {
+    logAction("Update User Launch Stats");
+
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] User Update Launch Stats - Missing ID.";
+        return false;
+    }
+
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral("UPDATE UserStats SET times_used = times_used + 1 WHERE id = ? AND date = DATE('now');"));
+    query.addBindValue(this->id);
+
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to update user stats:" << query.lastError().text();
+        return false;
+    }
+
+    return true;
+}
+
 // List all user's decks
 std::vector<Deck> User::listDecks() const {
+    logAction("List User Decks");
+
     std::vector<Deck> decks;
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
@@ -233,7 +272,7 @@ std::vector<Deck> User::listDecks() const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "Failed to retrieve deck IDs: " << query.lastError().text();
+        qDebug() << "Failed to retrieve deck IDs:" << query.lastError().text();
         return decks;
     }
 
@@ -252,7 +291,7 @@ std::vector<Deck> User::listDecks() const {
 
     query.prepare(QStringLiteral("SELECT id, name FROM Decks WHERE id IN (%1)").arg(quotedDeckIds.join(", ")));
     if (!query.exec()) {
-        qDebug() << "Failed to retrieve decks: " << query.lastError().text();
+        qDebug() << "Failed to retrieve decks:" << query.lastError().text();
         return decks;
     }
 
@@ -268,13 +307,15 @@ std::vector<Deck> User::listDecks() const {
 
 // List all users
 std::vector<User> User::listUsers() {
+    logAction("List Users");
+
     std::vector <User> users;
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
     query.prepare(QStringLiteral("SELECT * FROM Users;"));
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to list users: " << query.lastError().text();
+        qDebug() << "[DB] Failed to list users:" << query.lastError().text();
         return users;
     }
 

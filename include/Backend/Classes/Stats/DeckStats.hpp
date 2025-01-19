@@ -17,32 +17,36 @@ private:
     QString deck_id;
     QDate date;
     int cards_seen;
-    int time_spent_seconds;
+    qint64 time_spent_seconds;
+    qint64 session_start_time;
 
 public:
     // Constructors
-    DeckStats(const QString& user_id, const QString& deck_id, const QDate& date, const int& cards_seen, const int& time_spent_seconds);
+    DeckStats(const QString& user_id, const QString& deck_id, const QDate& date, const int& cards_seen, const qint64& time_spent_seconds, const qint64& session_start_time);
     DeckStats(const QString& user_id, const QString& deck_id);
     DeckStats();
 
     // Getters
+    QString getDeckID() const { return deck_id; }
+
     int getCardsSeen() const;
-    int getTimeSpentSeconds() const;
+    qint64 getSessionStartTime() const;
+    qint64 getTimeSpent() const;
 
     // Setters
-    void setDeckID(const QString& id) { deck_id = id; }
-    void setUserID(const QString& id) { user_id = id; }
+    void setDeckID(const QString& id);
+    void setUserID(const QString& id);
 
     // Database Operations
     // Load stats from database
-    Stats* loadStats() override;
+    Stats* load() override;
     // Initialize stats to database
-    bool initializeStats() const override;
+    bool initialize() const override;
 
     // Update stats based on user interactions
-    void updateStats(const StatsUpdateContext& context) override;
+    bool update(const StatsUpdateContext& context) override;
     // Display stats for debugging
-    void displayStats() const override;
+    void display() const override;
 };
 
 #endif
