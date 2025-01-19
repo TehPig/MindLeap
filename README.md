@@ -8,27 +8,26 @@
 
 # TODO List
 ### Priorities
-- [ ] Improve the List formatting (main window)
-- [ ] Be able to study the cards (intervals, etc)
+- ```
 - [ ] Implement stats
-- [ ] Add the rest of the GUI and methods
-- ```
-- [ ] Improve GUI design
-- [ ] Add card by specifying question and answer
-- ```
 - [ ] Add tests
-- [ ] UML Diagrams
+- ```
 
 ### Not-so important
-- [ ] Make compatible with Docker
-- [ ] Add sound effects
-- [ ] Add animations
 - [ ] Add a 50 card collection for both the app and Anki
 - [ ] Screenshots of executing the app
-- [ ] Enough comments within code
 
 ### Done
+- [x] UML Diagrams
+- [x] Enough comments within code
+- [x] Add sound effects
+- [x] Make compatible with Docker
 - [x] Basic User, Deck, Card classes
+- [x] Improve GUI design
+- [x] Add card by specifying question and answer
+- [x] Improve the List formatting (main window)
+- [x] Be able to study the cards (intervals, etc)
+- [x] Add the rest of the GUI and methods
 - [x] Create deck by only specifying name
 - [x] Fix Database relation IDs (decks, cards, deckscards)
 - [x] Basic Database methods and tables
