@@ -8,14 +8,11 @@
 
 # TODO List
 ### Priorities
-- ```
 - [ ] Implement stats
 - [ ] Add tests
-- ```
 
 ### Not-so important
 - [ ] Add a 50 card collection for both the app and Anki
-- [ ] Screenshots of executing the app
 
 ### Done
 - [x] UML Diagrams
