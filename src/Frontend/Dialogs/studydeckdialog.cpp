@@ -11,6 +11,8 @@ StudyDeckDialog::StudyDeckDialog(MainWindow *parent)
 {
     ui->setupUi(this);
 
+    setWindowTitle("Study Deck");
+
     User user;
     const bool user_status = user.fetchSelected();
     if (!user_status) {

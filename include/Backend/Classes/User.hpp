@@ -15,15 +15,15 @@
 class User final : public Entity {
 private:
     QString username;
+    QString id;
     std::vector<Deck> decks;
-    QString user_id;
 
     UserStats stats;
 
 public:
     // Constructors
     //User(const QString& u, QString& i, const std::vector<Deck> &d);
-    User(const QString& name, const QString& user_id);
+    User(const QString& name, const QString& id);
     User(const QString& name_or_id);
     // For the user of listUsers function
     User();
