@@ -36,6 +36,3 @@
 - [x] Optimized Functions
 - [x] Allow users to rename profiles
 - [x] Organized file structure, also compatible with Qt Creator
-
-## Ideas
-- User Custom Options for Decks
