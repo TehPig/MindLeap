@@ -49,16 +49,16 @@ Make sure the following tools are installed:
 
 1. **Install CMake**:
     - On **Ubuntu/Debian**:
-      sudo apt-get install cmake
+      `sudo apt-get install cmake`
     - On **macOS**:
-      brew install cmake
+      `brew install cmake`
     - On **Windows**, download and install from [CMake official site](https://cmake.org/download/).
 
 2. **Install Qt**:
     - On **Ubuntu/Debian**:
-      sudo apt-get install qt6-qmake qtbase6-dev
+      `sudo apt-get install qt6-qmake qtbase6-dev`
     - On **macOS**:
-      brew install qt
+      `brew install qt`
     - On **Windows**, download and install Qt from [Qt official site](https://www.qt.io/download).
 
 3. **Install a C++ Compiler**:
@@ -78,7 +78,7 @@ Alternatively, download the ZIP file of the repository and extract it.
 
 1. **Navigate to the project folder**:
    ```
-   cd MyApp
+   cd anki-project
    ```
 
 3. **Create a build directory** (This keeps the source and build files separate):
