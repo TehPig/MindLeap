@@ -9,7 +9,7 @@ RUN apt-get update && \
 RUN pip3 install aqtinstall
 
 # Install specific Qt version with aqtinstall
-RUN aqt install-qt linux desktop 6.5.2 gcc_64 --outputdir /opt/Qt
+RUN aqt install-qt linux desktop 6.8.1 gcc_64 --outputdir /opt/Qt
 
 # Set environment variables for CMake and Qt
 ENV PATH="/opt/Qt/6.5.2/gcc_64/bin:$PATH"
