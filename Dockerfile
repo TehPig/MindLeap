@@ -12,16 +12,16 @@ RUN pip3 install aqtinstall
 RUN aqt install-qt linux desktop 6.8.1 gcc_64 --outputdir /opt/Qt
 
 # Set environment variables for CMake and Qt
-ENV PATH="/opt/Qt/6.5.2/gcc_64/bin:$PATH"
-ENV QT_PLUGIN_PATH="/opt/Qt/6.5.2/gcc_64/plugins"
-ENV LD_LIBRARY_PATH="/opt/Qt/6.5.2/gcc_64/lib"
+ENV PATH="/opt/Qt/6.8.1/gcc_64/bin:$PATH"
+ENV QT_PLUGIN_PATH="/opt/Qt/6.8.1/gcc_64/plugins"
+ENV LD_LIBRARY_PATH="/opt/Qt/6.8.1/gcc_64/lib"
 
 # Copy the application source code into the container
 COPY . /app
 WORKDIR /app
 
 # Configure and build the application with CMake
-RUN cmake -Bbuild -H. -DCMAKE_PREFIX_PATH=/opt/Qt/6.5.2/gcc_64 && \
+RUN cmake -Bbuild -H. -DCMAKE_PREFIX_PATH=/opt/Qt/6.8.1/gcc_64 && \
     cmake --build build -- -j$(nproc)
 
 # Define the entry point to run the Qt application
