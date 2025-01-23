@@ -185,5 +185,4 @@ After building, you can run the application.
 ## Additional Notes
 
 - The minimum required Qt version for this project is **Qt 6.8.1**.
-- It's recommended to use **GCC 9.3** or newer for Linux/macOS, and **MSVC 2019** or newer for Windows.
-- Make sure to check your CMakeLists.txt file for any special instructions related to additional modules or dependencies.
+- It's recommended to use **GCC 9.3** or newer to compile the project.
