@@ -48,15 +48,26 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Set Qt host OS (normalized)
+      id: hostos
+      run: |
+        if [[ "${{ runner.os }}" == "Windows" ]]; then
+          echo "host=windows" >> $GITHUB_OUTPUT
+        elif [[ "${{ runner.os }}" == "macOS" ]]; then
+          echo "host=mac" >> $GITHUB_OUTPUT
+        else
+          echo "host=linux" >> $GITHUB_OUTPUT
+        fi
+
     - name: Install Qt 6.8.1
       uses: jurplel/install-qt-action@v3
       with:
         version: '6.8.1'
-        host: ${{ runner.os }}
+        host: ${{ steps.hostos.outputs.host }}
         target: desktop
         arch: ${{ matrix.qt_arch }}
         cache: true
-        modules: 'qtbase' # Add more as needed (e.g., qttools, qtdeclarative)
+        modules: 'qtbase'
 
     - name: Set reusable strings
       id: strings
