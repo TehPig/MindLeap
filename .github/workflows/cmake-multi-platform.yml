@@ -13,19 +13,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
           - os: windows-latest
             c_compiler: cl
             cpp_compiler: cl
-            qt_arch: win64_msvc2019_64
+            qt_arch: win64_msvc2022_64
           - os: ubuntu-latest
             c_compiler: gcc
             cpp_compiler: g++
             qt_arch: gcc_64
           - os: ubuntu-latest
+            c_compiler: clang
+            cpp_compiler: clang++
+            qt_arch: clang_64
+          - os: macos-latest
             c_compiler: clang
             cpp_compiler: clang++
             qt_arch: clang_64
@@ -35,6 +39,10 @@ jobs:
           - os: windows-latest
             c_compiler: clang
           - os: ubuntu-latest
+            c_compiler: cl
+          - os: macos-latest
+            c_compiler: gcc
+          - os: macos-latest
             c_compiler: cl
 
     steps:
@@ -47,7 +55,8 @@ jobs:
         host: ${{ runner.os }}
         target: desktop
         arch: ${{ matrix.qt_arch }}
-        modules: 'qtbase'
+        cache: true
+        modules: 'qtbase' # Add more as needed (e.g., qttools, qtdeclarative)
 
     - name: Set reusable strings
       id: strings
