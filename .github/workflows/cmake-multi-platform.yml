@@ -1,4 +1,4 @@
-name: CMake + Qt 6.8.1 on Multiple Platforms
+wname: CMake + Qt 6.8.1 on Multiple Platforms
 
 on:
   push:
@@ -50,6 +50,7 @@ jobs:
 
     - name: Set Qt host OS (normalized)
       id: hostos
+      shell: bash
       run: |
         if [[ "${{ runner.os }}" == "Windows" ]]; then
           echo "host=windows" >> $GITHUB_OUTPUT
