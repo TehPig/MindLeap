@@ -67,7 +67,6 @@ jobs:
         target: desktop
         arch: ${{ matrix.qt_arch }}
         cache: true
-        modules: 'qtbase'
 
     - name: Set reusable strings
       id: strings
