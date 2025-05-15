@@ -21,9 +21,11 @@ ENV LD_LIBRARY_PATH="/opt/Qt/6.8.1/gcc_64/lib"
 COPY . /app
 WORKDIR /app
 
+# Set the Qt installation path for CMake
+ENV CMAKE_PREFIX_PATH=/opt/Qt/6.8.1/gcc_64
+
 # Configure and build the application with CMake
-RUN cmake -Bbuild -H. -DCMAKE_PREFIX_PATH=/opt/Qt/6.8.1/gcc_64 && \
-    cmake --build build -- -j$(nproc)
+RUN cmake -Bbuild -S. && cmake --build build -- -j$(nproc)
 
 # Define the entry point to run the Qt application
 CMD ["./build/MindLeap"]
