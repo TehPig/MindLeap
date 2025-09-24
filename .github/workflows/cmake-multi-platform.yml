@@ -1,4 +1,4 @@
-wname: CMake + Qt 6.8.1 on Multiple Platforms
+name: CMake + Qt 6.8.1 on Multiple Platforms
 
 on:
   push:
