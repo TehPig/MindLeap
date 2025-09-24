@@ -1,69 +1,75 @@
-cmake_minimum_required(VERSION 3.16)
-project(MindLeap LANGUAGES CXX)
+name: CMake + Qt 6.8.1 Multi-Platform Build
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
 
-# Enable Qt automatic features
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTORCC ON)
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
 
-# Find Qt6 modules
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Sql Multimedia)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            build_type: Release
+            c_compiler: cl
+            cpp_compiler: cl
+            qt_arch: win64_msvc2022_64
+          - os: ubuntu-latest
+            build_type: Release
+            c_compiler: gcc
+            cpp_compiler: g++
+            qt_arch: linux_gcc_64
+          - os: macos-latest
+            build_type: Release
+            c_compiler: clang
+            cpp_compiler: clang++
+            qt_arch: clang_64
 
-# Source directories
-set(FORMS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/forms")
-set(INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include")
-set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
-set(TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
-set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+    steps:
+      - uses: actions/checkout@v4
 
-# Main executable
-file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp")
-file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
-file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
+      - name: Set Qt host OS
+        id: hostos
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "host=windows" >> $GITHUB_OUTPUT
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "host=mac" >> $GITHUB_OUTPUT
+          else
+            echo "host=linux" >> $GITHUB_OUTPUT
+          fi
 
-# Handle Windows icon resource
-if(WIN32)
-    set(APP_ICON "${ASSETS_DIR}/images/app_icon.ico")
-    set(APP_RC "${ASSETS_DIR}/rc/app_icon.rc")
-    configure_file(${APP_ICON} ${CMAKE_BINARY_DIR}/images/app_icon.ico COPYONLY)
-else()
-    set(APP_RC "")
-endif()
+      - name: Install Qt 6.8.1
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: 6.8.1
+          host: ${{ steps.hostos.outputs.host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          modules: qtmultimedia
+          cache: true
 
-add_executable(${PROJECT_NAME}
-    ${SOURCES} ${HEADERS} ${UI} ${APP_RC}
-)
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S .
 
-# Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${INCLUDE_DIR}
-    ${CMAKE_CURRENT_BINARY_DIR}
-)
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }}
 
-# Link Qt libraries
-target_link_libraries(${PROJECT_NAME} PRIVATE
-    Qt6::Core
-    Qt6::Widgets
-    Qt6::Sql
-    Qt6::Multimedia
-)
+      - name: Run tests
+        working-directory: build
+        run: ctest --build-config ${{ matrix.build_type }}
 
-# Simple GUI app flags - JUST THIS LINE for macOS
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    MACOSX_BUNDLE ON
-)
-
-# Copy sound files to executable directory
-file(GLOB_RECURSE SOUNDS "${ASSETS_DIR}/sounds/*.wav")
-foreach(SOUND ${SOUNDS})
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SOUND}
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-endforeach()
-
-# ... rest of your CMakeLists.txt (tests) remains unchanged
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MindLeap-${{ runner.os }}
+          path: |
+            build/MindLeap*
+            build/Release/MindLeap.exe
+          if-no-files-found: warn
