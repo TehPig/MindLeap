@@ -16,40 +16,21 @@ jobs:
         include:
           - os: windows-latest
             build_type: Release
-            c_compiler: cl
-            cpp_compiler: cl
             qt_arch: win64_msvc2022_64
           - os: ubuntu-latest
             build_type: Release
-            c_compiler: gcc
-            cpp_compiler: g++
             qt_arch: linux_gcc_64
           - os: macos-latest
             build_type: Release
-            c_compiler: clang
-            cpp_compiler: clang++
             qt_arch: clang_64
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set Qt host OS
-        id: hostos
-        shell: bash
-        run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            echo "host=windows" >> $GITHUB_OUTPUT
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "host=mac" >> $GITHUB_OUTPUT
-          else
-            echo "host=linux" >> $GITHUB_OUTPUT
-          fi
-
       - name: Install Qt 6.8.1
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.8.1
-          host: ${{ steps.hostos.outputs.host }}
           target: desktop
           arch: ${{ matrix.qt_arch }}
           modules: qtmultimedia
@@ -65,7 +46,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           cd build/Release
-          windeployqt MindLeap.exe --release --no-compiler-runtime
+          windeployqt MindLeap.exe --release
         shell: cmd
 
       - name: Deploy macOS (macdeployqt)
@@ -75,25 +56,40 @@ jobs:
           macdeployqt MindLeap.app -verbose=2 -always-overwrite
         shell: bash
 
+      - name: Copy sounds to build directory
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            cp -r assets/sounds build/Release/
+          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+            cp -r assets/sounds build/MindLeap.app/Contents/MacOS/
+          else
+            cp -r assets/sounds build/
+          fi
+        shell: bash
+
       - name: Run tests
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }}
 
-      - name: Package application
+      - name: Package Windows
+        if: matrix.os == 'windows-latest'
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            # Windows - zip the deployed executable with all DLLs
-            cd build/Release
-            zip -r MindLeap-Windows.zip MindLeap.exe *.dll sounds/
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            # macOS - zip the .app bundle
-            cd build
-            zip -r MindLeap-macOS.zip MindLeap.app
-          else
-            # Linux - create a tarball with the executable
-            cd build
-            tar -czvf MindLeap-Linux.tar.gz MindLeap sounds/
-          fi
+          cd build/Release
+          7z a MindLeap-Windows.zip MindLeap.exe sounds/ *.dll
+        shell: cmd
+
+      - name: Package macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd build
+          ditto -c -k --sequesterRsrc --keepParent MindLeap.app MindLeap-macOS.zip
+        shell: bash
+
+      - name: Package Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd build
+          tar -czvf MindLeap-Linux.tar.gz MindLeap sounds/
         shell: bash
 
       - name: Upload build artifact
