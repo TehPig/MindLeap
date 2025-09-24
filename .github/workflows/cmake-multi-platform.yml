@@ -19,16 +19,19 @@ jobs:
             c_compiler: cl
             cpp_compiler: cl
             qt_arch: win64_msvc2022_64
+            artifact_path: build/Release/MindLeap.exe
           - os: ubuntu-latest
             build_type: Release
             c_compiler: gcc
             cpp_compiler: g++
             qt_arch: linux_gcc_64
+            artifact_path: build/MindLeap
           - os: macos-latest
             build_type: Release
             c_compiler: clang
             cpp_compiler: clang++
             qt_arch: clang_64
+            artifact_path: build/MindLeap.app
 
     steps:
       - uses: actions/checkout@v4
@@ -60,7 +63,7 @@ jobs:
           -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
           -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
           -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-          -DCMAKE_PREFIX_PATH=$Qt6_DIR \
+          -DCMAKE_PREFIX_PATH=${{ env.Qt6_DIR }} \
           -S .
 
       - name: Build
@@ -70,10 +73,16 @@ jobs:
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }}
 
+      - name: Deploy application (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd build
+          make install
+        shell: bash
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MindLeap-${{ runner.os }}
-          path: |
-            build/MindLeap*            # Linux & Windows
-            build/MindLeap.app         # macOS
+          name: MindLeap-${{ runner.os }}-${{ matrix.build_type }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: warn
