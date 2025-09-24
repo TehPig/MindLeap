@@ -67,6 +67,7 @@ jobs:
         host: ${{ steps.hostos.outputs.host }}
         target: desktop
         arch: ${{ matrix.qt_arch }}
+        modules: qtmultimedia
         cache: true
 
     - name: Set reusable strings
