@@ -18,7 +18,7 @@ jobs:
             build_type: Release
             c_compiler: cl
             cpp_compiler: cl
-            qt_arch: win64_msvc2025_64
+            qt_arch: win64_msvc2022_64
           - os: ubuntu-latest
             build_type: Release
             c_compiler: gcc
