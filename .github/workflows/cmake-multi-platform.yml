@@ -2,9 +2,9 @@ name: CMake + Qt 6.8.1 Multi-Platform Build
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [master]
   pull_request:
-    branches: [ "master" ]
+    branches: [master]
 
 jobs:
   build:
@@ -23,7 +23,7 @@ jobs:
             build_type: Release
             c_compiler: gcc
             cpp_compiler: g++
-            qt_arch: gcc_64
+            qt_arch: linux_gcc_64
           - os: macos-latest
             build_type: Release
             c_compiler: clang
@@ -33,7 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Normalize Qt host OS
       - name: Set Qt host OS
         id: hostos
         shell: bash
@@ -44,48 +43,36 @@ jobs:
             echo "host=mac" >> $GITHUB_OUTPUT
           else
             echo "host=linux" >> $GITHUB_OUTPUT
-          fi
 
-      # Install Qt
       - name: Install Qt 6.8.1
         uses: jurplel/install-qt-action@v3
         with:
-          version: '6.8.1'
+          version: 6.8.1
           host: ${{ steps.hostos.outputs.host }}
           target: desktop
           arch: ${{ matrix.qt_arch }}
           modules: qtmultimedia
           cache: true
 
-      # Set build output dir
-      - name: Set reusable strings
-        id: strings
-        shell: bash
-        run: |
-          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
-
-      # Configure CMake
       - name: Configure CMake
-        run: |
-          cmake -B ${{ steps.strings.outputs.build-output-dir }} \
-                -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
-                -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
-                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                -DCMAKE_PREFIX_PATH=$QT_DIR \
-                -S ${{ github.workspace }}
+        run: cmake -B build \
+          -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+          -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+          -DCMAKE_PREFIX_PATH=$Qt6_DIR \
+          -S .
 
-      # Build
       - name: Build
-        run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+        run: cmake --build build --config ${{ matrix.build_type }}
 
-      # Run tests
-      - name: Test
-        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+      - name: Run tests
+        working-directory: build
         run: ctest --build-config ${{ matrix.build_type }}
 
-      # Upload built binaries as artifacts
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: MindLeap-${{ runner.os }}
-          path: ${{ steps.strings.outputs.build-output-dir }}/MindLeap*
+          path: |
+            build/MindLeap*          # Linux & Windows
+            build/MindLeap.app/Contents/MacOS/MindLeap  # macOS
