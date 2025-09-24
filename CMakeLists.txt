@@ -51,7 +51,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Multimedia
 )
 
-# GUI app flags - KEEP THE AUTOUIC_SEARCH_PATHS!
+# GUI app flags
 set_target_properties(${PROJECT_NAME} PROPERTIES
     AUTOUIC_SEARCH_PATHS "${FORMS_DIR}"
     WIN32_EXECUTABLE ON
@@ -60,12 +60,24 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 
 # Copy sound files to executable directory
 file(GLOB_RECURSE SOUNDS "${ASSETS_DIR}/sounds/*.wav")
-foreach(SOUND ${SOUNDS})
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SOUND}
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>
-    )
-endforeach()
+if(APPLE)
+    # For macOS, copy to app bundle
+    foreach(SOUND ${SOUNDS})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${SOUND}
+            $<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/MacOS/
+        )
+    endforeach()
+else()
+    # For Windows/Linux, copy to executable directory
+    foreach(SOUND ${SOUNDS})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${SOUND}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        )
+    endforeach()
+endif()
 
 # ... rest of your CMakeLists.txt (tests) remains unchanged
