@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.16)
-
 project(MindLeap LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -32,11 +31,13 @@ add_executable(${PROJECT_NAME}
     ${SOURCES} ${HEADERS} ${UI} ${APP_RC}
 )
 
+# Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${INCLUDE_DIR}
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+# Link Qt libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Widgets
@@ -44,6 +45,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Multimedia
 )
 
+# GUI app flags
 set_target_properties(${PROJECT_NAME} PROPERTIES
     AUTOUIC_SEARCH_PATHS ${FORMS_DIR}
     WIN32_EXECUTABLE ON
@@ -87,7 +89,6 @@ set_target_properties(${PROJECT_NAME}_tests PROPERTIES
     AUTOMOC OFF
     AUTORCC OFF
 )
-
 target_link_libraries(${PROJECT_NAME}_tests PRIVATE
     Catch2::Catch2WithMain
     Qt6::Core
