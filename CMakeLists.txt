@@ -24,8 +24,14 @@ file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp")
 file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 set(APP_ICON "${ASSETS_DIR}/images/app_icon.ico")
-set(APP_RC "${ASSETS_DIR}/rc/app_icon.rc")
-configure_file(${APP_ICON} ${CMAKE_BINARY_DIR}/images/app_icon.ico COPYONLY)
+
+# Handle Windows icon resource
+if(WIN32)
+    set(APP_RC "${ASSETS_DIR}/rc/app_icon.rc")
+    configure_file(${APP_ICON} ${CMAKE_BINARY_DIR}/images/app_icon.ico COPYONLY)
+else()
+    set(APP_RC "")
+endif()
 
 add_executable(${PROJECT_NAME}
     ${SOURCES} ${HEADERS} ${UI} ${APP_RC}
@@ -52,15 +58,67 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE ON
 )
 
-# Copy sound files
-file(GLOB_RECURSE SOUNDS "${ASSETS_DIR}/sounds/*.wav")
-foreach(SOUND ${SOUNDS})
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SOUND}
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>
+# macOS specific bundle configuration
+if(APPLE)
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/Info.plist"
+        MACOSX_BUNDLE_BUNDLE_NAME "MindLeap"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1.0.0"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+        MACOSX_BUNDLE_COPYRIGHT "Copyright © 2024 MindLeap. All rights reserved."
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.yourcompany.MindLeap"
     )
-endforeach()
+    
+    # Install the app bundle to the build directory
+    install(TARGETS ${PROJECT_NAME} BUNDLE DESTINATION .)
+endif()
+
+# Copy sound files (only for non-bundle builds or as a fallback)
+file(GLOB_RECURSE SOUNDS "${ASSETS_DIR}/sounds/*.wav")
+if(NOT APPLE)  # For macOS, we'll handle this in the bundle
+    foreach(SOUND ${SOUNDS})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${SOUND}
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>
+        )
+    endforeach()
+endif()
+
+# Platform-specific deployment (run after build is complete)
+if(WIN32)
+    # Windows deployment - use a custom target that runs after build
+    add_custom_target(deploy_win ALL
+        COMMAND ${CMAKE_COMMAND} -E echo "Running windeployqt..."
+        COMMAND windeployqt $<TARGET_FILE:${PROJECT_NAME}>
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        DEPENDS ${PROJECT_NAME}
+        COMMENT "Deploying Windows application"
+    )
+elseif(APPLE)
+    # macOS deployment - separate target that depends on the main build
+    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt)
+    if(MACDEPLOYQT_EXECUTABLE)
+        add_custom_target(deploy_mac ALL
+            COMMAND ${CMAKE_COMMAND} -E echo "Running macdeployqt..."
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} MindLeap.app -verbose=3
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            DEPENDS ${PROJECT_NAME}
+            COMMENT "Deploying macOS application"
+        )
+        
+        # Copy sound files into the app bundle
+        foreach(SOUND ${SOUNDS})
+            get_filename_component(SOUND_NAME ${SOUND} NAME)
+            add_custom_command(TARGET deploy_mac POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${SOUND}
+                MindLeap.app/Contents/MacOS/
+                COMMENT "Copying sound file: ${SOUND_NAME}"
+            )
+        endforeach()
+    endif()
+endif()
 
 # Catch2 tests
 include(FetchContent)
@@ -98,23 +156,3 @@ target_link_libraries(${PROJECT_NAME}_tests PRIVATE
 include(CTest)
 include(Catch)
 catch_discover_tests(${PROJECT_NAME}_tests)
-
-# Deployment per platform
-if(WIN32)
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt PATHS $ENV{QTDIR}/bin NO_DEFAULT_PATH)
-    if(WINDEPLOYQT_EXECUTABLE)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${WINDEPLOYQT_EXECUTABLE} $<TARGET_FILE:${PROJECT_NAME}>
-            COMMENT "Running windeployqt for Windows"
-        )
-    endif()
-elseif(APPLE)
-    find_program(MACDEPLOYQT_EXECUTABLE macdeployqt PATHS $ENV{QTDIR}/bin /usr/local/opt/qt/bin NO_DEFAULT_PATH)
-    if(MACDEPLOYQT_EXECUTABLE)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_FILE:${PROJECT_NAME}>
-            COMMENT "Running macdeployqt for macOS"
-        )
-    endif()
-endif()
-# Linux will run in-place; Qt libs must be in LD_LIBRARY_PATH
