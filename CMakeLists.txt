@@ -160,7 +160,7 @@ elseif(APPLE)
 
     # Deploy for the test executable
     add_custom_command(TARGET ${PROJECT_NAME}_tests POST_BUILD
-            COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_FILE:${PROJECT_NAME}_tests}>
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_FILE:${PROJECT_NAME}_tests>
             COMMENT "Running macdeployqt for ${PROJECT_NAME}_tests"
     )
 
