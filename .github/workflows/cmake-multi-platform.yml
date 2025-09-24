@@ -3,8 +3,7 @@ name: CMake + Qt 6.8.1 Multi-Platform Build
 on:
   push:
     branches: [master]
-  pull_request:
-    branches: [master]
+  workflow_dispatch:  # Manual trigger
 
 jobs:
   build:
@@ -42,62 +41,42 @@ jobs:
       - name: Build
         run: cmake --build build --config ${{ matrix.build_type }}
 
-      - name: Deploy Windows (windeployqt)
+      - name: Deploy Windows
         if: matrix.os == 'windows-latest'
         run: |
           cd build/Release
           windeployqt MindLeap.exe --release
+          xcopy /Y /E ..\..\assets\sounds\* .
         shell: cmd
 
-      - name: Deploy macOS (macdeployqt)
+      - name: Deploy macOS
         if: matrix.os == 'macos-latest'
         run: |
           cd build
           macdeployqt MindLeap.app -verbose=2 -always-overwrite
+          cp -r ../assets/sounds MindLeap.app/Contents/MacOS/
         shell: bash
 
-      - name: Copy sounds to build directory
+      - name: Copy sounds for Linux
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            cp -r assets/sounds build/Release/
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            cp -r assets/sounds build/MindLeap.app/Contents/MacOS/
-          else
-            cp -r assets/sounds build/
-          fi
+          cp -r assets/sounds build/
         shell: bash
 
       - name: Run tests
         working-directory: build
         run: ctest --build-config ${{ matrix.build_type }}
 
-      - name: Package Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          cd build/Release
-          7z a MindLeap-Windows.zip MindLeap.exe sounds/ *.dll
-        shell: cmd
-
-      - name: Package macOS
-        if: matrix.os == 'macos-latest'
-        run: |
-          cd build
-          ditto -c -k --sequesterRsrc --keepParent MindLeap.app MindLeap-macOS.zip
-        shell: bash
-
-      - name: Package Linux
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          cd build
-          tar -czvf MindLeap-Linux.tar.gz MindLeap sounds/
-        shell: bash
-
-      - name: Upload build artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: MindLeap-${{ runner.os }}
+          name: ${{ matrix.os }}-build-${{ github.run_number }}
           path: |
-            build/Release/MindLeap-Windows.zip
-            build/MindLeap-macOS.zip
-            build/MindLeap-Linux.tar.gz
+            build/Release/MindLeap.exe
+            build/Release/*.dll
+            build/Release/sounds/
+            build/MindLeap.app/
+            build/MindLeap
+            build/sounds/
           if-no-files-found: warn
+          retention-days: 30
