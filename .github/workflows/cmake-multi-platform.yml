@@ -32,17 +32,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set Qt host OS
         id: hostos
-        shell: bash
         run: |
-          if [[ "${{ runner.os }}" == "Windows" ]]; then
-            echo "host=windows" >> $GITHUB_OUTPUT
-          elif [[ "${{ runner.os }}" == "macOS" ]]; then
-            echo "host=mac" >> $GITHUB_OUTPUT
-          else
-            echo "host=linux" >> $GITHUB_OUTPUT
+          echo "host=${{ runner.os == 'Windows' && 'windows' || runner.os == 'macOS' && 'mac' || 'linux' }}" >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Install Qt 6.8.1
         uses: jurplel/install-qt-action@v3
