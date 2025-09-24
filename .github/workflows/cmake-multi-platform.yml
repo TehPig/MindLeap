@@ -1,4 +1,4 @@
-name: CMake + Qt 6.8.1 on Multiple Platforms
+name: CMake + Qt 6.8.1 Multi-Platform Build
 
 on:
   push:
@@ -13,70 +13,79 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build_type: [Release]
         include:
           - os: windows-latest
+            build_type: Release
             c_compiler: cl
             cpp_compiler: cl
             qt_arch: win64_msvc2025_64
           - os: ubuntu-latest
+            build_type: Release
             c_compiler: gcc
             cpp_compiler: g++
             qt_arch: gcc_64
           - os: macos-latest
+            build_type: Release
             c_compiler: clang
             cpp_compiler: clang++
             qt_arch: clang_64
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set Qt host OS (normalized)
-      id: hostos
-      shell: bash
-      run: |
-        if [[ "${{ runner.os }}" == "Windows" ]]; then
-          echo "host=windows" >> $GITHUB_OUTPUT
-        elif [[ "${{ runner.os }}" == "macOS" ]]; then
-          echo "host=mac" >> $GITHUB_OUTPUT
-        else
-          echo "host=linux" >> $GITHUB_OUTPUT
-        fi
+      # Normalize Qt host OS
+      - name: Set Qt host OS
+        id: hostos
+        shell: bash
+        run: |
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            echo "host=windows" >> $GITHUB_OUTPUT
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            echo "host=mac" >> $GITHUB_OUTPUT
+          else
+            echo "host=linux" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Install Qt 6.8.1
-      uses: jurplel/install-qt-action@v3
-      with:
-        version: '6.8.1'
-        host: ${{ steps.hostos.outputs.host }}
-        target: desktop
-        arch: ${{ matrix.qt_arch }}
-        modules: qtmultimedia
-        cache: true
+      # Install Qt
+      - name: Install Qt 6.8.1
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '6.8.1'
+          host: ${{ steps.hostos.outputs.host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          modules: qtmultimedia
+          cache: true
 
-    - name: Set reusable strings
-      id: strings
-      shell: bash
-      run: |
-        echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
+      # Set build output dir
+      - name: Set reusable strings
+        id: strings
+        shell: bash
+        run: |
+          echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Configure CMake
-      run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -DCMAKE_PREFIX_PATH=$Qt6_DIR
-        -S ${{ github.workspace }}
+      # Configure CMake
+      - name: Configure CMake
+        run: |
+          cmake -B ${{ steps.strings.outputs.build-output-dir }} \
+                -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} \
+                -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} \
+                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+                -DCMAKE_PREFIX_PATH=$QT_DIR \
+                -S ${{ github.workspace }}
 
-    - name: Build
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
+      # Build
+      - name: Build
+        run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
 
-    - name: Test
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ matrix.build_type }}
+      # Run tests
+      - name: Test
+        working-directory: ${{ steps.strings.outputs.build-output-dir }}
+        run: ctest --build-config ${{ matrix.build_type }}
 
-    - name: Upload build artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: MindLeap-${{ runner.os }}
-        path: ${{ steps.strings.outputs.build-output-dir }}/MindLeap*
+      # Upload built binaries as artifacts
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: MindLeap-${{ runner.os }}
+          path: ${{ steps.strings.outputs.build-output-dir }}/MindLeap*
