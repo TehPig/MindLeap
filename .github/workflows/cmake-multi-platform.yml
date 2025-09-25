@@ -1,45 +1,31 @@
-name: CMake + Qt 6.8.1 Multi-Platform Build
+name: Build and Release
 
 on:
   push:
-    branches: [master]
-  workflow_dispatch:  # Manual trigger
+    tags: ['v*']
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-
     strategy:
-      fail-fast: false
       matrix:
-        include:
-          - os: windows-latest
-            build_type: Release
-            qt_arch: win64_msvc2022_64
-          - os: ubuntu-latest
-            build_type: Release
-            qt_arch: linux_gcc_64
-          - os: macos-latest
-            build_type: Release
-            qt_arch: clang_64
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Qt 6.8.1
+      - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.8.1
           target: desktop
           arch: ${{ matrix.qt_arch }}
-          modules: qtmultimedia
-          cache: true
 
-      - name: Configure CMake
-        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -S .
-
-      - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }}
+      - name: Configure and Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -S .
+          cmake --build build --config Release
 
       - name: Deploy Windows
         if: matrix.os == 'windows-latest'
@@ -47,36 +33,43 @@ jobs:
           cd build/Release
           windeployqt MindLeap.exe --release
           xcopy /Y /E ..\..\assets\sounds\* .
-        shell: cmd
 
       - name: Deploy macOS
         if: matrix.os == 'macos-latest'
         run: |
           cd build
-          macdeployqt MindLeap.app -verbose=2 -always-overwrite
+          macdeployqt MindLeap.app -verbose=2
           cp -r ../assets/sounds MindLeap.app/Contents/MacOS/
-        shell: bash
 
-      - name: Copy sounds for Linux
+      - name: Deploy Linux
         if: matrix.os == 'ubuntu-latest'
         run: |
-          cp -r assets/sounds build/
-        shell: bash
+          cd build
+          cp -r ../assets/sounds .
+          # Just bundle the executable + sounds folder
 
-      - name: Run tests
-        working-directory: build
-        run: ctest --build-config ${{ matrix.build_type }}
+      - name: Create Release Assets
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            cd build/Release
+            # Create installer or just zip the folder
+            7z a MindLeap-Windows.zip MindLeap.exe sounds/ *.dll
+          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+            cd build
+            # Create DMG like Anki does
+            hdiutil create -volname "MindLeap" -srcfolder MindLeap.app -ov -format UDZO MindLeap-macOS.dmg
+          else
+            cd build
+            # Simple tar file like Anki
+            tar -czvf MindLeap-Linux.tar.gz MindLeap sounds/
+          fi
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: ${{ matrix.os }}-build-${{ github.run_number }}
-          path: |
-            build/Release/MindLeap.exe
-            build/Release/*.dll
-            build/Release/sounds/
-            build/MindLeap.app/
-            build/MindLeap
-            build/sounds/
-          if-no-files-found: warn
-          retention-days: 30
+          files: |
+            build/Release/MindLeap-Windows.zip
+            build/MindLeap-macOS.dmg
+            build/MindLeap-Linux.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
