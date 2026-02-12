@@ -27,18 +27,27 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Forcing UCRT64 MinGW for Qt 6 compatibility..."
-        $MinGWBin = "C:\msys64\ucrt64\bin"
-        if (-not (Test-Path $MinGWBin)) {
-            Write-Host "UCRT64 not found, searching Tools..."
-            $MinGWBin = Get-ChildItem -Path "D:\a\anki-project\Qt\Tools", "C:\Qt\Tools" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "64" } | 
-                        Select-Object -First 1 -ExpandProperty DirectoryName
+        Write-Host "Purging PATH of conflicting compilers (RTools, etc)..."
+        # Definitive removal of problematic paths
+        $Paths = $env:PATH -split ';' | Where-Object { 
+            $_ -notmatch "rtools" -and 
+            $_ -notmatch "mingw32" -and 
+            $_ -notmatch "C:\\mingw" 
         }
+        $env:PATH = $Paths -join ';'
         
-        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
+        Write-Host "Locating Qt-provided 64-bit MinGW..."
+        # Force search in the Tools directory where jurplel/install-qt-action puts it
+        $QtRoot = "D:\a\anki-project\Qt"
+        if (-not (Test-Path $QtRoot)) { $QtRoot = "C:\Qt" }
         
-        Write-Host "Found compatible MinGW at: $MinGWBin"
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+                    Select-Object -First 1 -ExpandProperty DirectoryName
+        
+        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found in $QtRoot" }
+        
+        Write-Host "Using MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
@@ -47,14 +56,17 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Aggressively patching RapidJSON..."
-            (Get-Content $path) -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', '' | Set-Content $path
+            Write-Host "Definitively patching RapidJSON..."
+            $content = Get-Content $path -Raw
+            $newContent = $content -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
+            $newContent | Set-Content $path -Encoding UTF8
         }
       shell: pwsh
 
     - name: Configure CMake
       run: |
-        cmake -B build -G "MinGW Makefiles" `
+        # Use absolute path to system cmake to avoid any broken RTools/msys version
+        & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
           -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
@@ -62,7 +74,9 @@ jobs:
       shell: pwsh
 
     - name: Build
-      run: cmake --build build --config Release -j 4
+      run: |
+        & "C:\Program Files\CMake\bin\cmake.exe" --build build --config Release -j 4
+      shell: pwsh
 
     - name: Run Tests
       working-directory: build
