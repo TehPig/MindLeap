@@ -23,16 +23,22 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
+        tools: 'tools_mingw'
         cache: 'true'
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Forcing UCRT64 toolchain for Qt 6 compatibility..."
-        # MSYS2 UCRT64 is pre-installed on the runner and matches Qt 6
-        $MinGWBin = "C:\msys64\ucrt64\bin"
-        if (-not (Test-Path $MinGWBin)) {
-            throw "UCRT64 toolchain not found at $MinGWBin"
-        }
+        $QtPath = "${{ env.Qt6_DIR }}"
+        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
+        Write-Host "Searching for MinGW in $QtRoot..."
+        
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+                    Select-Object -First 1 -ExpandProperty DirectoryName
+        
+        if (-not $MinGWBin) { throw "64-bit MinGW compiler not found in $QtRoot" }
+        
+        Write-Host "Found MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
@@ -41,11 +47,10 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Regex patching RapidJSON for modern GCC compatibility..."
-            $content = Get-Content $path -Raw
-            # Remove the invalid operator= definition using regex to handle whitespace
-            $newContent = $content -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ [^}]* \}', ''
-            $newContent | Set-Content $path
+            Write-Host "Patching RapidJSON..."
+            $c = Get-Content $path -Raw
+            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
+            $c | Set-Content $path
         }
       shell: pwsh
 
