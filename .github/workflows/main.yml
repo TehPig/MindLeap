@@ -16,16 +16,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        msystem: UCRT64
-        update: true
-        install: >-
-          mingw-w64-ucrt-x86_64-gcc
-          mingw-w64-ucrt-x86_64-make
-          mingw-w64-ucrt-x86_64-cmake
-
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
@@ -35,12 +25,37 @@ jobs:
         modules: 'qtmultimedia'
         cache: 'true'
 
+    - name: Setup MinGW Path
+      run: |
+        Write-Host "Purging PATH of conflicting compilers..."
+        # Blacklist common broken system paths
+        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }
+        $env:PATH = $Paths -join ';'
+        
+        Write-Host "Locating the matching Qt MinGW toolchain..."
+        $QtPath = "${{ env.Qt6_DIR }}" # D:\a\anki-project\Qt\6.8.1\mingw_64
+        $QtRoot = Split-Path (Split-Path $QtPath) # D:\a\anki-project\Qt
+        
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+                    Select-Object -First 1 -ExpandProperty DirectoryName
+        
+        if (-not $MinGWBin) {
+            throw "Matching 64-bit MinGW compiler not found in $QtRoot"
+        }
+        
+        Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
+        echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
+        echo "$MinGWBin" >> $env:GITHUB_PATH
+      shell: pwsh
+
     - name: Patch RapidJSON
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Patching RapidJSON..."
+            Write-Host "Patching RapidJSON for compatibility..."
             $c = Get-Content $path -Raw
+            # Matches operator= regardless of formatting
             $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}', ''
             $c | Set-Content $path
         }
@@ -48,16 +63,18 @@ jobs:
 
     - name: Configure CMake
       run: |
-        # Use the MSYS2 UCRT64 compiler explicitly
-        cmake -B build -G "MinGW Makefiles" `
+        # Force the exact matching compiler to fix __imp___argc error
+        & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_C_COMPILER="C:/msys64/ucrt64/bin/gcc.exe" `
-          -DCMAKE_CXX_COMPILER="C:/msys64/ucrt64/bin/g++.exe" `
-          -DCMAKE_MAKE_PROGRAM="C:/msys64/ucrt64/bin/mingw32-make.exe"
+          -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
+          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe"
       shell: pwsh
 
     - name: Build
-      run: cmake --build build --config Release -j 4
+      run: |
+        & "C:\Program Files\CMake\bin\cmake.exe" --build build --config Release -j 4
+      shell: pwsh
 
     - name: Run Tests
       working-directory: build
