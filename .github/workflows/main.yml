@@ -27,42 +27,52 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Locating compatible 64-bit MinGW toolchain..."
-        # Search every corner of the runner for the matching Qt compiler
-        $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" -and $_.FullName -match "mingw" } | 
+        Write-Host "Purging problematic compilers from the runner..."
+        # RTools and other system MinGWs cause 'undefined reference' and 'no such file' errors
+        if (Test-Path "C:\rtools45") { Remove-Item -Recurse -Force "C:\rtools45" -ErrorAction SilentlyContinue }
+        if (Test-Path "C:\mingw32") { Remove-Item -Recurse -Force "C:\mingw32" -ErrorAction SilentlyContinue }
+        
+        Write-Host "Locating the Qt-provided MinGW toolchain..."
+        # jurplel/install-qt-action installs to a specific drive (usually D: on this runner)
+        $QtPath = "${{ env.Qt6_DIR }}"
+        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
+        
+        # We REQUIRE the one inside the Qt/Tools folder for binary compatibility
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
         if (-not $MinGWBin) {
-            throw "Matching 64-bit MinGW compiler (g++.exe) not found on any drive."
+            throw "Matching 64-bit MinGW compiler (g++.exe) not found in $QtRoot"
         }
         
         Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
-        # Prepend to PATH to ensure it overrides system compilers like GCC 15
-        echo "$MinGWBin" >> $env:GITHUB_PATH
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
+        # Prepend to PATH to ensure absolute priority over system defaults
+        echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
 
     - name: Patch RapidJSON
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Patching RapidJSON for GCC compatibility..."
-            # Use a robust replacement that handles all whitespace/newline variations
+            Write-Host "Patching RapidJSON for GCC 14/15 compatibility..."
             $content = Get-Content $path -Raw
-            $regex = '(?s)GenericStringRef& operator=\(const GenericStringRef& rhs\) \{.*?\}'
+            # Matches the invalid operator= regardless of whitespace or formatting
+            $regex = '(?s)GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}'
             $content -replace $regex, '' | Set-Content $path
         }
       shell: pwsh
 
     - name: Configure CMake
       run: |
-        # Use the system CMake but force it to use our detected compiler
+        # Use the absolute path to system CMake and force the specific detected compiler
         & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
           -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
-          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe"
+          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe" `
+          -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
       shell: pwsh
 
     - name: Build
