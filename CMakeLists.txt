@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 project(MindLeap VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -22,7 +22,7 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 
-# Main executable - Select sources explicitly to avoid RPC folder on Linux
+# Select sources EXPLICITLY to avoid RPC folder on Linux by default
 file(GLOB_RECURSE SOURCES 
     "${SRC_DIR}/Backend/Classes/*.cpp"
     "${SRC_DIR}/Backend/Database/*.cpp"
@@ -37,17 +37,11 @@ set(RESOURCES "resources.qrc")
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 
-if(USE_DISCORD AND WIN32)
+if(WIN32 AND USE_DISCORD)
+    # Add RPC files ONLY on Windows
+    file(GLOB_RECURSE RPC_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp" "${SRC_DIR}/Backend/RPC/*.c")
+    list(APPEND SOURCES ${RPC_SOURCES})
     add_definitions(-DDISCORD_WINDOWS)
-    # Add implementation files back ONLY on Windows
-    list(APPEND SOURCES 
-        "${SRC_DIR}/Backend/RPC/discord_rpc.cpp"
-        "${SRC_DIR}/Backend/RPC/rpc_connection.cpp"
-        "${SRC_DIR}/Backend/RPC/serialization.cpp"
-        "${SRC_DIR}/Backend/RPC/connection_win.cpp"
-        "${SRC_DIR}/Backend/RPC/discord_register_win.cpp"
-    )
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
 else()
     set(USE_DISCORD OFF)
 endif()
@@ -72,7 +66,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-if(USE_DISCORD AND WIN32)
+if(USE_DISCORD)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
 endif()
 
@@ -112,20 +106,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-# Test executable
-file(GLOB_RECURSE BACKEND_SOURCES "${SRC_DIR}/*.cpp")
-file(GLOB_RECURSE BACKEND_HEADERS "${INCLUDE_DIR}/*.hpp")
-
-# Exclude Frontend and main from backend tests
-list(FILTER BACKEND_SOURCES EXCLUDE REGEX ".*/Frontend/.*\\.cpp$")
-list(FILTER BACKEND_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
-list(FILTER BACKEND_SOURCES EXCLUDE REGEX ".*/Backend/RPC/.*\\.cpp$")
-list(FILTER BACKEND_HEADERS EXCLUDE REGEX ".*/Frontend/.*\\.hpp$")
-
+# Test executable - Exclude RPC and Frontend
+file(GLOB_RECURSE BACKEND_SOURCES 
+    "${SRC_DIR}/Backend/Classes/*.cpp"
+    "${SRC_DIR}/Backend/Database/*.cpp"
+    "${SRC_DIR}/Backend/Utilities/*.cpp"
+)
 file(GLOB_RECURSE TEST_SOURCES "${TESTS_DIR}/*.cpp")
 
 add_executable(${PROJECT_NAME}_tests
-    ${BACKEND_SOURCES} ${BACKEND_HEADERS} ${TEST_SOURCES}
+    ${BACKEND_SOURCES} ${TEST_SOURCES}
 )
 
 target_include_directories(${PROJECT_NAME}_tests PRIVATE ${INCLUDE_DIR})
@@ -143,4 +133,3 @@ target_link_libraries(${PROJECT_NAME}_tests PRIVATE
 include(CTest)
 include(Catch)
 catch_discover_tests(${PROJECT_NAME}_tests)
-

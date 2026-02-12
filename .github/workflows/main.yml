@@ -27,27 +27,31 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Purging PATH of conflicting compilers (RTools, etc)..."
-        # Definitive removal of problematic paths
-        $Paths = $env:PATH -split ';' | Where-Object { 
-            $_ -notmatch "rtools" -and 
-            $_ -notmatch "mingw32" -and 
-            $_ -notmatch "C:\\mingw" 
+        Write-Host "Aggressively searching for 64-bit MinGW..."
+        # Search D:\a\anki-project\Qt then C:\Qt then D:\ then C:\
+        $SearchPaths = @("D:\a\anki-project\Qt", "C:\Qt", "D:\", "C:\")
+        $MinGWBin = $null
+        
+        foreach ($Path in $SearchPaths) {
+            if (Test-Path $Path) {
+                Write-Host "Checking $Path..."
+                $MinGWBin = Get-ChildItem -Path $Path -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                            Where-Object { ($_.FullName -match "64") -and ($_.FullName -notmatch "32") -and ($_.FullName -notmatch "msys64") -and ($_.FullName -notmatch "C:\\mingw64") } | 
+                            Select-Object -First 1 -ExpandProperty DirectoryName
+                if ($MinGWBin) { break }
+            }
         }
-        $env:PATH = $Paths -join ';'
         
-        Write-Host "Locating Qt-provided 64-bit MinGW..."
-        # Force search in the Tools directory where jurplel/install-qt-action puts it
-        $QtRoot = "D:\a\anki-project\Qt"
-        if (-not (Test-Path $QtRoot)) { $QtRoot = "C:\Qt" }
+        if (-not $MinGWBin) {
+            Write-Host "Strict search failed, searching broadly..."
+            $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                        Where-Object { $_.FullName -match "mingw" -and $_.FullName -notmatch "32" } | 
+                        Select-Object -First 1 -ExpandProperty DirectoryName
+        }
         
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
-                    Select-Object -First 1 -ExpandProperty DirectoryName
+        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
         
-        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found in $QtRoot" }
-        
-        Write-Host "Using MinGW at: $MinGWBin"
+        Write-Host "Found compatible MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
