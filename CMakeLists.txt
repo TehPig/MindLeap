@@ -22,8 +22,14 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 
-# Main executable
-file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.c")
+# Main executable - Select sources explicitly to avoid RPC folder on Linux
+file(GLOB_RECURSE SOURCES 
+    "${SRC_DIR}/Backend/Classes/*.cpp"
+    "${SRC_DIR}/Backend/Database/*.cpp"
+    "${SRC_DIR}/Backend/Utilities/*.cpp"
+    "${SRC_DIR}/Frontend/*.cpp"
+    "${SRC_DIR}/main.cpp"
+)
 file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 set(RESOURCES "resources.qrc")
@@ -31,17 +37,18 @@ set(RESOURCES "resources.qrc")
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 
-# Search for and REMOVE all RPC files from the build by default
-file(GLOB_RECURSE RPC_INTERNAL_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp" "${SRC_DIR}/Backend/RPC/*.c")
-
 if(USE_DISCORD AND WIN32)
     add_definitions(-DDISCORD_WINDOWS)
-    # They are already in SOURCES from GLOB_RECURSE
+    # Add implementation files back ONLY on Windows
+    list(APPEND SOURCES 
+        "${SRC_DIR}/Backend/RPC/discord_rpc.cpp"
+        "${SRC_DIR}/Backend/RPC/rpc_connection.cpp"
+        "${SRC_DIR}/Backend/RPC/serialization.cpp"
+        "${SRC_DIR}/Backend/RPC/connection_win.cpp"
+        "${SRC_DIR}/Backend/RPC/discord_register_win.cpp"
+    )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
 else()
-    # On Linux/Docker, definitively remove RPC files from sources list
-    if(RPC_INTERNAL_SOURCES)
-        list(REMOVE_ITEM SOURCES ${RPC_INTERNAL_SOURCES})
-    endif()
     set(USE_DISCORD OFF)
 endif()
 

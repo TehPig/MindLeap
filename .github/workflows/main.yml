@@ -27,20 +27,12 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Cleaning environment..."
-        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" }
-        $env:PATH = $Paths -join ';'
-        
-        Write-Host "Locating compatible 64-bit MinGW..."
-        # Search common roots for g++.exe provided by Qt (matching 64-bit and Tools)
-        $MinGWBin = Get-ChildItem -Path "C:\", "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "64" -and $_.FullName -match "Tools" } | 
-                    Select-Object -First 1 -ExpandProperty DirectoryName
-        
-        if (-not $MinGWBin) {
-            Write-Host "Falling back to broader search..."
-            $MinGWBin = Get-ChildItem -Path "C:\", "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "64" -and $_.FullName -notmatch "C:\\mingw" } | 
+        Write-Host "Forcing UCRT64 MinGW for Qt 6 compatibility..."
+        $MinGWBin = "C:\msys64\ucrt64\bin"
+        if (-not (Test-Path $MinGWBin)) {
+            Write-Host "UCRT64 not found, searching Tools..."
+            $MinGWBin = Get-ChildItem -Path "D:\a\anki-project\Qt\Tools", "C:\Qt\Tools" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                        Where-Object { $_.FullName -match "64" } | 
                         Select-Object -First 1 -ExpandProperty DirectoryName
         }
         
@@ -55,10 +47,8 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Applying pre-build patch to RapidJSON..."
-            $content = Get-Content $path -Raw
-            $newContent = $content -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
-            $newContent | Set-Content $path -Encoding UTF8
+            Write-Host "Aggressively patching RapidJSON..."
+            (Get-Content $path) -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', '' | Set-Content $path
         }
       shell: pwsh
 
