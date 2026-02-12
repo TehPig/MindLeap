@@ -27,8 +27,8 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Searching for MinGW (g++.exe)..."
-        # Search D:\a\anki-project\Qt then C:\Qt then D:\ then C:\
+        Write-Host "Searching for 64-bit MinGW (g++.exe)..."
+        # Search specifically for 64-bit paths, excluding C:\mingw32 and other 32-bit folders
         $SearchPaths = @("D:\a\anki-project\Qt", "C:\Qt", "D:\", "C:\")
         $MinGWBin = $null
         
@@ -36,15 +36,15 @@ jobs:
             if (Test-Path $Path) {
                 Write-Host "Checking $Path..."
                 $MinGWBin = Get-ChildItem -Path $Path -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                            Where-Object { $_.FullName -match "mingw" -and $_.FullName -notmatch "C:\\mingw64" } | 
+                            Where-Object { ($_.FullName -match "64") -and ($_.FullName -notmatch "32") -and ($_.FullName -notmatch "msys64\\usr\\bin") } | 
                             Select-Object -First 1 -ExpandProperty DirectoryName
                 if ($MinGWBin) { break }
             }
         }
         
-        if (-not $MinGWBin) { throw "MinGW compiler (g++.exe) not found on the runner." }
+        if (-not $MinGWBin) { throw "64-bit MinGW compiler (g++.exe) not found on the runner." }
         
-        Write-Host "Found MinGW at: $MinGWBin"
+        Write-Host "Found 64-bit MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
