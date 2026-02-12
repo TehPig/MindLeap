@@ -55,10 +55,11 @@ else()
     set(APP_RC "")
 endif()
 
-# DEFINE TARGET FIRST
+# --- DEFINE TARGET FIRST ---
 add_executable(${PROJECT_NAME}
     ${SOURCES} ${HEADERS} ${UI} ${RESOURCES} ${APP_RC}
 )
+# ---------------------------
 
 # THEN APPLY TARGET PROPERTIES
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -107,7 +108,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(Catch2)
 
-# Test executable - Exclude RPC and Frontend
+# Test executable
 file(GLOB_RECURSE BACKEND_SOURCES 
     "${SRC_DIR}/Backend/Classes/*.cpp"
     "${SRC_DIR}/Backend/Database/*.cpp"

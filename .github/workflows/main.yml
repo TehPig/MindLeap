@@ -23,32 +23,39 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
+        # 'tools_mingw' is the correct alias for the compiler toolchain
+        tools: 'tools_mingw'
         cache: 'true'
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Purging problematic compilers from the runner..."
-        # RTools and other system MinGWs cause 'undefined reference' and 'no such file' errors
-        if (Test-Path "C:\rtools45") { Remove-Item -Recurse -Force "C:\rtools45" -ErrorAction SilentlyContinue }
-        if (Test-Path "C:\mingw32") { Remove-Item -Recurse -Force "C:\mingw32" -ErrorAction SilentlyContinue }
+        Write-Host "Purging PATH of conflicting compilers..."
+        # Blacklist common broken system paths
+        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }
+        $env:PATH = $Paths -join ';'
         
-        Write-Host "Locating the Qt-provided MinGW toolchain..."
-        # jurplel/install-qt-action installs to a specific drive (usually D: on this runner)
-        $QtPath = "${{ env.Qt6_DIR }}"
-        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
+        Write-Host "Locating the matching Qt MinGW toolchain..."
+        $QtPath = "${{ env.Qt6_DIR }}" # e.g. D:\a\anki-project\Qt\6.8.1\mingw_64
+        $QtBase = Split-Path (Split-Path (Split-Path $QtPath)) # D:\a\anki-project\Qt
         
-        # We REQUIRE the one inside the Qt/Tools folder for binary compatibility
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+        # Search for g++.exe in the Tools subdirectory
+        $MinGWBin = Get-ChildItem -Path "$QtBase\Tools" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "64" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
         if (-not $MinGWBin) {
-            throw "Matching 64-bit MinGW compiler (g++.exe) not found in $QtRoot"
+            # Fallback: Search the whole Qt directory if the structure varies
+            $MinGWBin = Get-ChildItem -Path $QtBase -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                        Where-Object { $_.FullName -match "64" } | 
+                        Select-Object -First 1 -ExpandProperty DirectoryName
+        }
+
+        if (-not $MinGWBin) {
+            throw "Matching 64-bit MinGW compiler not found in $QtBase"
         }
         
         Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
-        # Prepend to PATH to ensure absolute priority over system defaults
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
 
@@ -56,23 +63,22 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Patching RapidJSON for GCC 14/15 compatibility..."
-            $content = Get-Content $path -Raw
-            # Matches the invalid operator= regardless of whitespace or formatting
-            $regex = '(?s)GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}'
-            $content -replace $regex, '' | Set-Content $path
+            Write-Host "Patching RapidJSON for compatibility..."
+            $c = Get-Content $path -Raw
+            # Matches operator= regardless of formatting
+            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}', ''
+            $c | Set-Content $path
         }
       shell: pwsh
 
     - name: Configure CMake
       run: |
-        # Use the absolute path to system CMake and force the specific detected compiler
+        # Force the exact matching compiler to fix __imp___argc error
         & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
           -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
-          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe" `
-          -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe"
       shell: pwsh
 
     - name: Build
