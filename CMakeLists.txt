@@ -30,20 +30,19 @@ set(RESOURCES "resources.qrc")
 
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
-if(USE_DISCORD)
+if(USE_DISCORD AND WIN32)
     # Remove platform-specific RPC files from generic sources to handle them conditionally
     list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_win\\.cpp$")
-    list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_unix\\.cpp$")
-    list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_linux\\.cpp$")
     
-    if(WIN32)
-        add_definitions(-DDISCORD_WINDOWS)
-        list(APPEND SOURCES 
-            "${SRC_DIR}/Backend/RPC/connection_win.cpp"
-            "${SRC_DIR}/Backend/RPC/discord_register_win.cpp"
-        )
-    endif()
-    # Note: Linux/Mac support currently disabled as source files weren't provided/found
+    add_definitions(-DDISCORD_WINDOWS)
+    list(APPEND SOURCES 
+        "${SRC_DIR}/Backend/RPC/connection_win.cpp"
+        "${SRC_DIR}/Backend/RPC/discord_register_win.cpp"
+    )
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
+else()
+    # Disable RPC on other platforms (Docker/Linux) because implementation files are missing
+    set(USE_DISCORD OFF)
 endif()
 
 # Handle Windows icon resource
