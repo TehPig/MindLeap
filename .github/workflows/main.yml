@@ -27,9 +27,12 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        $QtRoot = Split-Path (Split-Path $env:Qt6_DIR) -Parent
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse | Select-Object -First 1 -ExpandProperty DirectoryName
+        $QtPath = "${{ env.Qt6_DIR }}"
+        # Go up from .../Qt/6.8.1/mingw_64 to .../Qt
+        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse | Where-Object { $_.FullName -match "Tools" } | Select-Object -First 1 -ExpandProperty DirectoryName
         if (-not $MinGWBin) { throw "Could not find MinGW in $QtRoot" }
+        Write-Host "Found MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
@@ -54,9 +57,10 @@ jobs:
       if: startsWith(github.ref, 'refs/tags/')
       run: |
         mkdir dist
-        copy build\MindLeap.exe dist
+        copy build\MindLeap.exe dist\
         windeployqt --release --compiler-runtime dist\MindLeap.exe
-        xcopy /Y /E assets\sounds dist\sounds
+        mkdir dist\sounds
+        xcopy /Y /E assets\sounds dist\sounds\
       shell: cmd
 
     - name: Create Release Zip

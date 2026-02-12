@@ -28,6 +28,24 @@ file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 set(RESOURCES "resources.qrc")
 
+# Discord RPC Configuration
+option(USE_DISCORD "Enable Discord Rich Presence" ON)
+if(USE_DISCORD)
+    # Remove platform-specific RPC files from generic sources to handle them conditionally
+    list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_win\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_unix\\.cpp$")
+    list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_linux\\.cpp$")
+    
+    if(WIN32)
+        add_definitions(-DDISCORD_WINDOWS)
+        list(APPEND SOURCES 
+            "${SRC_DIR}/Backend/RPC/connection_win.cpp"
+            "${SRC_DIR}/Backend/RPC/discord_register_win.cpp"
+        )
+    endif()
+    # Note: Linux/Mac support currently disabled as source files weren't provided/found
+endif()
+
 # Handle Windows icon resource
 if(WIN32)
     set(APP_ICON "${ASSETS_DIR}/images/app_icon.ico")
@@ -48,15 +66,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-# Discord RPC Configuration
-option(USE_DISCORD "Enable Discord Rich Presence" ON)
 if(USE_DISCORD)
-    add_definitions(-DDISCORD_WINDOWS)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
-    
-    # The source files are now part of the main project
-    # We add the RPC directory to the include path so RapidJSON can be found
-    target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/Backend/RPC")
 endif()
 
 # Link Qt libraries
