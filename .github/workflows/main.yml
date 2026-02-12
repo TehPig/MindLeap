@@ -16,6 +16,16 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        update: true
+        install: >-
+          mingw-w64-ucrt-x86_64-gcc
+          mingw-w64-ucrt-x86_64-make
+          mingw-w64-ucrt-x86_64-cmake
+
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
@@ -23,68 +33,31 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
-        # Explicitly install the matching MinGW toolchain
-        tools: 'qt.tools.win64_mingw1310'
         cache: 'true'
-
-    - name: Setup MinGW Path
-      run: |
-        Write-Host "Purging PATH of system compilers..."
-        # Remove any existing MinGW/MSYS from PATH to prevent GCC 15 conflict
-        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }
-        $env:PATH = $Paths -join ';'
-        
-        Write-Host "Searching for the matching Qt MinGW (GCC 13)..."
-        $QtPath = "${{ env.Qt6_DIR }}"
-        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
-        
-        # Look specifically in the Tools folder where the action installed it
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
-                    Select-Object -First 1 -ExpandProperty DirectoryName
-        
-        if (-not $MinGWBin) { 
-            Write-Host "MinGW not found in Qt root, searching broadly..."
-            $MinGWBin = Get-ChildItem -Path "C:\", "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
-                        Select-Object -First 1 -ExpandProperty DirectoryName
-        }
-        
-        if (-not $MinGWBin) { throw "Compatible Qt MinGW compiler not found." }
-        
-        Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
-        echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
-        # PREPEND to PATH to ensure absolute priority
-        echo "$MinGWBin" >> $env:GITHUB_PATH
-      shell: pwsh
 
     - name: Patch RapidJSON
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Regex patching RapidJSON for GCC compatibility..."
-            $content = Get-Content $path -Raw
-            # Matches operator= regardless of whitespace or newlines
-            $regex = 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}'
-            $newContent = $content -replace $regex, ''
-            $newContent | Set-Content $path
+            Write-Host "Patching RapidJSON..."
+            $c = Get-Content $path -Raw
+            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}', ''
+            $c | Set-Content $path
         }
       shell: pwsh
 
     - name: Configure CMake
       run: |
-        # Use absolute path to system cmake to avoid any broken tool versions
-        & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
+        # Use the MSYS2 UCRT64 compiler explicitly
+        cmake -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
-          -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
-          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe"
+          -DCMAKE_C_COMPILER="C:/msys64/ucrt64/bin/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="C:/msys64/ucrt64/bin/g++.exe" `
+          -DCMAKE_MAKE_PROGRAM="C:/msys64/ucrt64/bin/mingw32-make.exe"
       shell: pwsh
 
     - name: Build
-      run: |
-        & "C:\Program Files\CMake\bin\cmake.exe" --build build --config Release -j 4
-      shell: pwsh
+      run: cmake --build build --config Release -j 4
 
     - name: Run Tests
       working-directory: build
