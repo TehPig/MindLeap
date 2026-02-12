@@ -76,10 +76,15 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Widgets
     Qt6::Sql
     Qt6::Multimedia
-    ws2_32
-    psapi
-    advapi32
 )
+
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE
+        ws2_32
+        psapi
+        advapi32
+    )
+endif()
 
 # GUI app flags
 set_target_properties(${PROJECT_NAME} PROPERTIES

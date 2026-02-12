@@ -27,11 +27,12 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        $QtPath = "${{ env.Qt6_DIR }}"
-        # Go up from .../Qt/6.8.1/mingw_64 to .../Qt
-        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse | Where-Object { $_.FullName -match "Tools" } | Select-Object -First 1 -ExpandProperty DirectoryName
-        if (-not $MinGWBin) { throw "Could not find MinGW in $QtRoot" }
+        $QtDrive = Split-Path -Qualifier $env:Qt6_DIR
+        Write-Host "Searching for MinGW on $QtDrive..."
+        $MinGWBin = Get-ChildItem -Path "$QtDrive\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "mingw" } | 
+                    Select-Object -First 1 -ExpandProperty DirectoryName
+        if (-not $MinGWBin) { throw "Could not find MinGW on $QtDrive" }
         Write-Host "Found MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
