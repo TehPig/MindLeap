@@ -31,16 +31,16 @@ set(RESOURCES "resources.qrc")
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 
-# Find all RPC implementation files
-file(GLOB_RECURSE RPC_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp" "${SRC_DIR}/Backend/RPC/*.c")
+# Search for and REMOVE all RPC files from the build by default
+file(GLOB_RECURSE RPC_INTERNAL_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp" "${SRC_DIR}/Backend/RPC/*.c")
 
 if(USE_DISCORD AND WIN32)
     add_definitions(-DDISCORD_WINDOWS)
     # They are already in SOURCES from GLOB_RECURSE
 else()
-    # On Linux/Docker, completely remove RPC files from sources list
-    if(RPC_SOURCES)
-        list(REMOVE_ITEM SOURCES ${RPC_SOURCES})
+    # On Linux/Docker, definitively remove RPC files from sources list
+    if(RPC_INTERNAL_SOURCES)
+        list(REMOVE_ITEM SOURCES ${RPC_INTERNAL_SOURCES})
     endif()
     set(USE_DISCORD OFF)
 endif()
