@@ -27,11 +27,12 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        # Qt6_DIR is D:\a\anki-project\Qt\6.8.1\mingw_64
-        $QtVersionRoot = Split-Path $env:Qt6_DIR -Parent # D:\a\anki-project\Qt\6.8.1
-        $QtRoot = Split-Path $QtVersionRoot -Parent        # D:\a\anki-project\Qt
-        $MinGWBin = Get-ChildItem -Path "$QtRoot\Tools" -Filter "g++.exe" -Recurse | Select-Object -First 1 -ExpandProperty DirectoryName
-        if (-not $MinGWBin) { throw "Could not find MinGW in $QtRoot\Tools" }
+        $QtPath = "${{ env.Qt6_DIR }}"
+        # Search the entire folder where jurplel/install-qt-action installed things
+        $QtBase = Split-Path (Split-Path (Split-Path $QtPath))
+        Write-Host "Searching for MinGW in $QtBase..."
+        $MinGWBin = Get-ChildItem -Path $QtBase -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty DirectoryName
+        if (-not $MinGWBin) { throw "Could not find MinGW in $QtBase" }
         Write-Host "Found MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH

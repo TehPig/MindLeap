@@ -28,14 +28,17 @@ file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 set(RESOURCES "resources.qrc")
 
-# Remove ALL files in Backend/RPC from default SOURCES to prevent compilation on Linux
-list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*")
+# Completely exclude RPC implementation files from global SOURCES
+file(GLOB_RECURSE RPC_INTERNAL_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp")
+if(RPC_INTERNAL_SOURCES)
+    list(REMOVE_ITEM SOURCES ${RPC_INTERNAL_SOURCES})
+endif()
 
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 if(USE_DISCORD AND WIN32)
     add_definitions(-DDISCORD_WINDOWS)
-    # Add ONLY the files we need for Windows
+    # Add implementation files back ONLY on Windows
     list(APPEND SOURCES 
         "${SRC_DIR}/Backend/RPC/discord_rpc.cpp"
         "${SRC_DIR}/Backend/RPC/rpc_connection.cpp"
