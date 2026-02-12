@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+﻿cmake_minimum_required(VERSION 3.16)
 project(MindLeap VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -23,7 +23,7 @@ set(TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 
 # Main executable
-file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp")
+file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.c")
 file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 set(RESOURCES "resources.qrc")
@@ -44,19 +44,19 @@ add_executable(${PROJECT_NAME}
 # Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${INCLUDE_DIR}
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/Backend/RPC"
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 if(USE_DISCORD)
-    # Using the manually cloned and patched source in discord-rpc-tmp
-    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
-    add_subdirectory(discord-rpc-tmp)
-
-    target_link_libraries(${PROJECT_NAME} PRIVATE discord-rpc)
+    add_definitions(-DDISCORD_WINDOWS)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
+    
+    # The source files are now part of the main project
+    # We add the RPC directory to the include path so RapidJSON can be found
+    target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include/Backend/RPC")
 endif()
 
 # Link Qt libraries
@@ -82,3 +82,4 @@ if(WIN32 AND MINGW)
 endif()
 
 # ... rest of your CMakeLists.txt (tests) remains unchanged
+

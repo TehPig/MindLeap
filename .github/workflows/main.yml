@@ -1,0 +1,58 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-windows:
+    name: Build & Release (Windows)
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.8.1'
+        target: 'desktop'
+        arch: 'win64_mingw'
+        modules: 'qtmultimedia'
+        cache: 'true'
+
+    - name: Configure CMake
+      run: cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Run Tests
+      working-directory: build
+      run: ctest -C Release --output-on-failure
+
+    - name: Package Application
+      if: startsWith(github.ref, 'refs/tags/')
+      run: |
+        mkdir dist
+        copy build\MindLeap.exe dist
+        windeployqt --release --compiler-runtime dist\MindLeap.exe
+        xcopy /Y /E assets\sounds dist\sounds
+      shell: cmd
+
+    - name: Create Release Zip
+      if: startsWith(github.ref, 'refs/tags/')
+      run: Compress-Archive -Path dist\* -DestinationPath MindLeap-Windows.zip
+
+    - name: Publish Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: MindLeap-Windows.zip
+        body: "Automated release of MindLeap version ${{ github.ref_name }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
