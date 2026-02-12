@@ -27,43 +27,37 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Purging PATH of conflicting compilers..."
-        # Blacklist common broken system paths
-        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }
-        $env:PATH = $Paths -join ';'
-        
-        Write-Host "Locating the matching Qt MinGW toolchain..."
-        $QtPath = "${{ env.Qt6_DIR }}" # D:\a\anki-project\Qt\6.8.1\mingw_64
-        $QtRoot = Split-Path (Split-Path $QtPath) # D:\a\anki-project\Qt
-        
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+        Write-Host "Locating compatible 64-bit MinGW toolchain..."
+        # Search every corner of the runner for the matching Qt compiler
+        $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" -and $_.FullName -match "mingw" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
         if (-not $MinGWBin) {
-            throw "Matching 64-bit MinGW compiler not found in $QtRoot"
+            throw "Matching 64-bit MinGW compiler (g++.exe) not found on any drive."
         }
         
         Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
-        echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
+        # Prepend to PATH to ensure it overrides system compilers like GCC 15
         echo "$MinGWBin" >> $env:GITHUB_PATH
+        echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
       shell: pwsh
 
     - name: Patch RapidJSON
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Patching RapidJSON for compatibility..."
-            $c = Get-Content $path -Raw
-            # Matches operator= regardless of formatting
-            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}', ''
-            $c | Set-Content $path
+            Write-Host "Patching RapidJSON for GCC compatibility..."
+            # Use a robust replacement that handles all whitespace/newline variations
+            $content = Get-Content $path -Raw
+            $regex = '(?s)GenericStringRef& operator=\(const GenericStringRef& rhs\) \{.*?\}'
+            $content -replace $regex, '' | Set-Content $path
         }
       shell: pwsh
 
     - name: Configure CMake
       run: |
-        # Force the exact matching compiler to fix __imp___argc error
+        # Use the system CMake but force it to use our detected compiler
         & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
