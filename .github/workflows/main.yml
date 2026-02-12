@@ -27,21 +27,39 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        $QtSearchPath = "D:\a\anki-project\Qt"
-        Write-Host "Searching for 64-bit MinGW in $QtSearchPath..."
+        Write-Host "Cleaning environment..."
+        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" }
+        $env:PATH = $Paths -join ';'
         
-        # Find g++.exe specifically within the Qt/Tools folder
-        $MinGWBin = Get-ChildItem -Path $QtSearchPath -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+        Write-Host "Locating compatible 64-bit MinGW..."
+        # Search common roots for g++.exe provided by Qt (matching 64-bit and Tools)
+        $MinGWBin = Get-ChildItem -Path "C:\", "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "64" -and $_.FullName -match "Tools" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
         if (-not $MinGWBin) {
-            throw "Could not find a matching 64-bit MinGW compiler in $QtSearchPath"
+            Write-Host "Falling back to broader search..."
+            $MinGWBin = Get-ChildItem -Path "C:\", "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                        Where-Object { $_.FullName -match "64" -and $_.FullName -notmatch "C:\\mingw" } | 
+                        Select-Object -First 1 -ExpandProperty DirectoryName
         }
         
-        Write-Host "Found matching MinGW at: $MinGWBin"
+        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
+        
+        Write-Host "Found compatible MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
+      shell: pwsh
+
+    - name: Patch RapidJSON
+      run: |
+        $path = "include/Backend/RPC/rapidjson/document.h"
+        if (Test-Path $path) {
+            Write-Host "Applying pre-build patch to RapidJSON..."
+            $content = Get-Content $path -Raw
+            $newContent = $content -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
+            $newContent | Set-Content $path -Encoding UTF8
+        }
       shell: pwsh
 
     - name: Configure CMake
