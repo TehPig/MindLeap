@@ -3,7 +3,9 @@ LABEL authors="TehPig"
 
 # Install system dependencies
 RUN apt-get update && \
-    apt-get install -y build-essential wget python3 python3-pip cmake git libgl1-mesa-dev libglib2.0-dev
+    apt-get install -y build-essential wget python3 python3-pip cmake git \
+    libgl1-mesa-dev libglib2.0-dev libpulse-dev libdbus-1-dev libxkbcommon-dev \
+    libfontconfig1-dev libicu-dev
 
 # Install aqtinstall
 RUN pip3 install aqtinstall
