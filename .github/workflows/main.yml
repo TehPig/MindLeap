@@ -28,23 +28,19 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Purging PATH of system compilers..."
-        # Force removal of common conflicting paths
-        $Paths = $env:PATH -split ';' | Where-Object { 
-            $_ -notmatch "mingw" -and 
-            $_ -notmatch "msys" -and 
-            $_ -notmatch "rtools" 
-        }
-        $env:PATH = $Paths -join ';'
+        Write-Host "Blacklisting broken system compilers..."
+        # Purge existing MinGW/MSYS paths from the environment to avoid GCC 14/15 mismatch
+        $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch "C:\\mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }) -join ';'
         
-        Write-Host "Exhaustively searching for Qt-provided MinGW..."
-        # Try D: then C: - specifically looking for Tools/mingw
+        Write-Host "Locating the matching Qt MinGW compiler..."
+        # jurplel/install-qt-action installs tools in a specific structure
+        # We search D: then C: but we REQUIRE the path to contain "Qt" and "Tools"
         $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+                    Where-Object { $_.FullName -match "Qt" -and $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
         if (-not $MinGWBin) {
-            Write-Host "Strict search failed, searching for any matching compiler..."
+            Write-Host "Warning: Standard Qt Tools path not found, searching broadly..."
             $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
                         Where-Object { $_.FullName -match "64" -and $_.FullName -notmatch "C:\\mingw" } | 
                         Select-Object -First 1 -ExpandProperty DirectoryName
@@ -52,9 +48,12 @@ jobs:
         
         if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
         
-        Write-Host "Found compatible MinGW at: $MinGWBin"
+        Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
+        $gccVer = & "$MinGWBin\g++.exe" --version | Select-Object -First 1
+        Write-Host "Compiler version: $gccVer"
+        
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
-        # Prepend to PATH to ensure highest priority
+        # PREPEND to PATH to ensure it has absolute priority
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
 
@@ -62,9 +61,10 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Patching RapidJSON for modern C++ compatibility..."
+            Write-Host "Applying ultra-strict regex patch to RapidJSON..."
             $c = Get-Content $path -Raw
-            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
+            # Remove the invalid operator= definition regardless of whitespace
+            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ [^}]* \}', ''
             $c | Set-Content $path
         }
       shell: pwsh
