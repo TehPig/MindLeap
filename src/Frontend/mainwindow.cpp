@@ -11,7 +11,8 @@
 #include <QCursor>
 #include <QSoundEffect>
 #include <QUrl>
-
+#include "Backend/Utilities/Logger.hpp"
+#include "Backend/Utilities/DiscordManager.hpp"
 #include "Backend/Classes/User.hpp"
 #include "Backend/Database/setup.hpp"
 #include "Frontend/mainwindow.h"
@@ -24,6 +25,8 @@
 #include "Frontend/Dialogs/addcarddialog.h"
 #include "Frontend/Dialogs/confirmationdialog.h"
 #include "Frontend/Dialogs/customdialog.h"
+#include "Frontend/Dialogs/aboutdialog.h"
+#include "Frontend/Dialogs/guidedialog.h"
 #include "forms/ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -31,8 +34,15 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow()) {
     ui->setupUi(this);
 
-    // Make sure unwanted elements are hidden, not the best way of doing it
-    if(!ui->scrollArea->isVisible()) ui->scrollArea->setVisible(true);
+    setWindowIcon(QIcon(":/assets/images/app_icon.ico"));
+
+    // Initialize sound once
+    popSound = new QSoundEffect(this);
+    popSound->setSource(QUrl("qrc:/assets/sounds/pop.wav"));
+    popSound->setVolume(0.5f);
+
+    // Make sure unwanted elements are hidden
+    ui->scrollArea->setVisible(true);
     ui->AddCardButton->setVisible(false);
     ui->deckWidget->setVisible(false);
     ui->study->setVisible(false);
@@ -43,58 +53,64 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Make the table widget hoverable
     auto *tableWidget = qobject_cast<HoverableTableWidget*>(ui->CardList);
-    // Connect listeners for hover and leave events on tableWidhert
     connect(tableWidget, &HoverableTableWidget::rowHovered, this, &MainWindow::onRowHovered);
     connect(tableWidget, &HoverableTableWidget::rowLeft, this, &MainWindow::onRowLeft);
 
-    // Once DB is initialized, fetch the current user, load the decks and display them to user
+    // Once DB is initialized, fetch the current user
     auto db = Database::getInstance("app_data.db");
     if(!db->getDB().isOpen()) db->initialize();
 
     User user;
     const bool status = user.fetchSelected();
     if(!status){
-        const bool user_created = user.create();
-        if(!user_created){
-            ui->statusbar->showMessage("Error: Default User could not be created.");
+        if(!user.create()){
+            Logger::error("Default User could not be created", "Main");
             return;
         }
         user.select();
-
-        setWindowTitle(user.getUsername() + " | MindLeap");
-
-        Deck deck;
-        const bool deck_created = deck.create();
-        if(!deck_created){
-            ui->statusbar->showMessage("Error: Default Deck could not be created.");
-            return;
-        }
-
-        // List the user's decks
-        populateTableWidget(user.listDecks());
-        return;
     }
 
+    Logger::info(QString("Session started for user: %1").arg(user.getUsername()), "Main");
     setWindowTitle(user.getUsername() + " | MindLeap");
 
     if(user.listDecks().empty()){
-        // Create Default deck
         Deck deck;
-        const bool deck_created = deck.create();
-        if(!deck_created){
-            ui->statusbar->showMessage("Error: Default Deck could not be created.");
-            return;
-        }
+        deck.create();
     }
 
-    // Update user times seen stats
     user.updateLaunchStats();
 
-    // List the user's decks
+    DiscordManager::updatePresence("Browsing Decks", "", "browse");
     populateTableWidget(user.listDecks());
+
+    // Pre-initialize heavy dialogs in the background to make them instant on first click
+    QTimer::singleShot(100, this, [this]() {
+        if (!guideDialog) {
+            guideDialog = new GuideDialog(this);
+            guideDialog->setModal(true);
+            
+            // Warm up: Force window creation and layout calculation off-screen
+            guideDialog->move(-10000, -10000);
+            guideDialog->show();
+            guideDialog->hide();
+        }
+        if (!aboutDialog) {
+            aboutDialog = new AboutDialog(this);
+            aboutDialog->setModal(true);
+            
+            // Warm up
+            aboutDialog->move(-10000, -10000);
+            aboutDialog->show();
+            aboutDialog->hide();
+        }
+    });
 }
 
-MainWindow::~MainWindow() { delete ui; }
+MainWindow::~MainWindow() {
+    if (guideDialog) delete guideDialog;
+    if (aboutDialog) delete aboutDialog;
+    delete ui;
+}
 
 HoverableTableWidget* MainWindow::get_tableWidget() {
     return static_cast<HoverableTableWidget*>(ui->CardList);
@@ -275,18 +291,17 @@ void MainWindow::onRowLeft(int row) { setButtonVisibility(row, false); }
 
 // Dialogs
 void MainWindow::on_CreateDeckButton_clicked() {
-    CustomDialog *dialog = new CustomDialog(this);
-    dialog->setWindowTitleText("Create Deck");
-    dialog->setMessageText("Enter Deck name:");
+    CustomDialog dialog(this);
+    dialog.setWindowTitleText("Create Deck");
+    dialog.setMessageText("Enter Deck name:");
 
-    if (dialog->exec() == QDialog::Accepted) {
-        QString deckName = dialog->getEnteredText(); // Now safe to get entered text
+    if (dialog.exec() == QDialog::Accepted) {
+        QString deckName = dialog.getEnteredText(); // Now safe to get entered text
 
         Deck deck("n_" + deckName);
         const bool status = deck.create();
         if(!status){
             this->statusBar()->showMessage("Error: Deck was not created.");
-            delete dialog;
             return;
         }
 
@@ -296,7 +311,6 @@ void MainWindow::on_CreateDeckButton_clicked() {
 
         insertTableRow(deck, row, true);
 
-        delete dialog;
         ui->CardList->viewport()->update();
 
         // Show hidden buttons
@@ -308,6 +322,8 @@ void MainWindow::on_CreateDeckButton_clicked() {
 }
 
 void MainWindow::on_DecksButton_clicked() {
+    DiscordManager::updatePresence("Browsing Decks", "", "browse");
+
     if(!ui->scrollArea->isVisible()){
         ui->study->setVisible(false);
         ui->studyFinished->setVisible(false);
@@ -324,43 +340,40 @@ void MainWindow::on_DecksButton_clicked() {
 }
 
 void MainWindow::on_SetDescriptionButton_clicked() {
-    CustomDialog* dialog = new CustomDialog(this);
-    dialog->setWindowTitleText("Set Deck Description");
-    dialog->setMessageText("Enter description:");
+    CustomDialog dialog(this);
+    dialog.setWindowTitleText("Set Deck Description");
+    dialog.setMessageText("Enter description:");
 
-    if(dialog->exec() == QDialog::Accepted){
-        QString deckDescription = dialog->getEnteredText(); // Now safe to get entered text
+    if(dialog.exec() == QDialog::Accepted){
+        QString deckDescription = dialog.getEnteredText(); // Now safe to get entered text
 
         const QString id = ui->Name->property("deckID").toString();
         Deck deck(id);
         const bool status = deck.setDescription(deckDescription);
         if(!status){
             this->statusBar()->showMessage("Error: Deck Description was not set.");
-            delete dialog;
             return;
         }
 
         if(!ui->scrollArea_2->isVisible()) ui->scrollArea_2->setVisible(true);
 
         ui->Description->setText(deckDescription);
-        delete dialog;
     }
 }
 
 void MainWindow::on_AddCardButton_clicked() {
-    AddCardDialog* dialog = new AddCardDialog(this);
+    AddCardDialog dialog(this);
 
-    if(dialog->exec() == QDialog::Accepted){
+    if(dialog.exec() == QDialog::Accepted){
         const QString id = ui->Name->property("deckID").toString();
-        const QString question = dialog->getQuestion();
-        const QString answer = dialog->getAnswer();
+        const QString question = dialog.getQuestion();
+        const QString answer = dialog.getAnswer();
 
         Card card(question, answer);
         Deck deck(id);
         const bool status = deck.addCard(card);
         if(!status){
             this->statusBar()->showMessage("Error: Card not added to Deck");
-            delete dialog;
             return;
         }
 
@@ -372,7 +385,6 @@ void MainWindow::on_AddCardButton_clicked() {
 
         // Card added to deck so the study button can be shown
         if(!ui->StudyButton->isVisible()) ui->StudyButton->setVisible(true);
-        delete dialog;
     }
 }
 
@@ -440,7 +452,10 @@ void MainWindow::insertTableRow(const Deck& deck, const int& row, const bool& in
     connect(nameLabel, &QLabel::linkActivated, this, [this, deck]() mutable {
         Deck nonConstDeck = deck; // Create a non-const copy of the deck
 
-        if (nonConstDeck.fetch()) showDeckInfo(nonConstDeck);
+        if (nonConstDeck.fetch()){
+            DiscordManager::updatePresence("Managing Deck", deck.getName(), "deck");
+            showDeckInfo(nonConstDeck);
+        }
         else this->statusBar()->showMessage("Error: Could not fetch deck information.");
     });
 
@@ -556,33 +571,33 @@ void MainWindow::on_actionStudy_Deck_triggered() {
 }
 
 void MainWindow::startStudySession(const QString& deckID) {
-    Deck deck(deckID);
+    this->currentDeckID = deckID;
+    this->currentDeckObj = Deck(deckID);
 
-    if (!deck.study()) {
-        statusBar()->showMessage("Error: Could not start the study session.");
-        return;
+    if (currentDeckObj.study()) {
+        Logger::info("Study session started", QString("DeckID: %1").arg(deckID));
+
+        ui->deckWidget->setVisible(false);
+        ui->scrollArea->setVisible(false);
+        ui->studyFinished->setVisible(false);
+        ui->study->setVisible(true);
+
+        ui->EndStudyButton->setVisible(true);
+        ui->CreateDeckButton->setVisible(false);
+        ui->SetDescriptionButton->setVisible(false);
+        ui->AddCardButton->setVisible(false);
+
+        ui->AgainButton->setVisible(false);
+        ui->HardButton->setVisible(false);
+        ui->GoodButton->setVisible(false);
+        ui->EasyButton->setVisible(false);
+
+        proceedToNextCard();
+    } else {
+        Logger::info("No cards due for study in deck: " + deckID, "Main");
+        showStyledMessageBox("MindLeap", "No cards are currently due for study in this deck.", QMessageBox::Information);
+        statusBar()->showMessage("No cards due for study.");
     }
-
-    ui->deckWidget->setVisible(false);
-    ui->scrollArea->setVisible(false);
-    ui->studyFinished->setVisible(false);
-    ui->study->setVisible(true);
-
-    ui->EndStudyButton->setVisible(true);
-
-    ui->CreateDeckButton->setVisible(false);
-    ui->SetDescriptionButton->setVisible(false);
-    ui->AddCardButton->setVisible(false);
-    ui->EndStudyButton->setVisible(true);
-
-    ui->AgainButton->setVisible(false);
-    ui->HardButton->setVisible(false);
-    ui->GoodButton->setVisible(false);
-    ui->EasyButton->setVisible(false);
-
-    // Set up the UI for the study session
-    this->setCurrentDeck(deckID);
-    proceedToNextCard(deck);
 }
 
 // Preferences Dialog
@@ -593,76 +608,122 @@ void MainWindow::on_actionPreferences_triggered() {
 }
 
 void MainWindow::on_actionGuide_triggered() {
-    showStyledMessageBox("Guide", "This is still in developement", QMessageBox::Warning);
+    if (!guideDialog) {
+        guideDialog = new GuideDialog(this);
+        guideDialog->setModal(true);
+    }
+    
+    // Center on parent if it was moved off-screen during pre-init
+    if (guideDialog->x() < 0) {
+        guideDialog->setGeometry(
+            QStyle::alignedRect(
+                Qt::LeftToRight,
+                Qt::AlignCenter,
+                guideDialog->size(),
+                this->geometry()
+            )
+        );
+    }
+
+    guideDialog->show();
+    guideDialog->raise();
+    guideDialog->activateWindow();
 }
 
 void MainWindow::on_actionAbout_triggered() {
-    showStyledMessageBox("About", "This is still in developement", QMessageBox::Warning);
+    if (!aboutDialog) {
+        aboutDialog = new AboutDialog(this);
+        aboutDialog->setModal(true);
+    }
+
+    // Center on parent
+    if (aboutDialog->x() < 0) {
+        aboutDialog->setGeometry(
+            QStyle::alignedRect(
+                Qt::LeftToRight,
+                Qt::AlignCenter,
+                aboutDialog->size(),
+                this->geometry()
+            )
+        );
+    }
+
+    aboutDialog->show();
+    aboutDialog->raise();
+    aboutDialog->activateWindow();
 }
 
 void MainWindow::on_StudyButton_clicked() {
-    // Hide non-required elements
-    ui->deckWidget->setVisible(false);
-    ui->study->setVisible(true);
-
-    ui->EndStudyButton->setVisible(true);
-
-    ui->SetDescriptionButton->setVisible(false);
-    ui->AddCardButton->setVisible(false);
-    ui->EndStudyButton->setVisible(true);
+    // Get deck id
+    const QString deckID = ui->Name->property("deckID").toString();
     
+    this->currentDeckID = deckID;
+    this->currentDeckObj = Deck(deckID);
+    
+    if (currentDeckObj.study()) {
+        Logger::info("Study session started", QString("DeckID: %1").arg(deckID));
+        DiscordManager::updatePresence("Studying", currentDeckObj.getName(), "study");
+
+        // Only hide elements if we actually have cards to study
+        ui->deckWidget->setVisible(false);
+        ui->study->setVisible(true);
+        ui->EndStudyButton->setVisible(true);
+        ui->SetDescriptionButton->setVisible(false);
+        ui->AddCardButton->setVisible(false);
+        
+        ui->AgainButton->setVisible(false);
+        ui->HardButton->setVisible(false);
+        ui->GoodButton->setVisible(false);
+        ui->EasyButton->setVisible(false);
+
+        proceedToNextCard();
+    } else {
+        Logger::info("No cards due for study in deck: " + deckID, "Main");
+        showStyledMessageBox("MindLeap", "No cards are currently due for study in this deck.", QMessageBox::Information);
+        statusBar()->showMessage("No cards due for study.");
+    }
+}
+
+void MainWindow::proceedToNextCard(){
+    // Get Next Card
+    this->currentCard = currentDeckObj.getNextCard();
+
+    if(this->currentCard.isEmpty()){
+        ui->study->setVisible(false);
+        ui->EndStudyButton->setVisible(false);
+        ui->studyFinished->setVisible(true);
+        DiscordManager::updatePresence("Browsing Decks", "", "browse");
+
+        if(!currentDeckObj.endStudy()){
+            Logger::error("Could not end studying session", "Main");
+        }
+
+        this->currentDeckID.clear();
+        return;
+    }
+
+    // Make getAnswer button visible and hide rating buttons
+    ui->GetAnswerButton->setVisible(true);
     ui->AgainButton->setVisible(false);
     ui->HardButton->setVisible(false);
     ui->GoodButton->setVisible(false);
     ui->EasyButton->setVisible(false);
 
-    // Get deck id
-    const QString deckID = ui->Name->property("deckID").toString();
-    qDebug() << deckID;
-
-    Deck deck(deckID);
-    deck.study();
-
-    this->setCurrentDeck(deckID);
-    proceedToNextCard(deck);
-}
-
-QString MainWindow::getCurrentDeck() const { return this->currentDeck; }
-void MainWindow::setCurrentDeck(const QString &deckID) { this->currentDeck = deckID; }
-
-void MainWindow::proceedToNextCard(Deck& deck){
-    // Get Next Card
-    const Card card = deck.getNextCard();
-
-    if(card.isEmpty()){
-        ui->study->setVisible(false);
-        ui->EndStudyButton->setVisible(false);
-
-        ui->studyFinished->setVisible(true);
-
-        const bool studyEnd_status = deck.endStudy();
-        if(!studyEnd_status){
-            this->statusBar()->showMessage("Error: Could not end studying session.");
-            return;
-        }
-
-        this->currentDeck.clear();
-        return;
-    }
-
-    // Make getAnswer button visible
-    ui->GetAnswerButton->setVisible(true);
+    // Ensure study container is visible
+    ui->study->setVisible(true);
 
     // Update Question and Answer
-    ui->cardQuestion->setText(card.getQuestion());
-    ui->cardAnswer->setText(card.getAnswer());
+    ui->cardQuestion->setText(this->currentCard.getQuestion());
+    ui->cardAnswer->setText(this->currentCard.getAnswer());
     ui->cardAnswer->setVisible(false);
 
     // Update counters
-    const std::vector counters = deck.getCardInformation();
-    ui->UnseenCardCount->setText(QString::number(counters[0]));
-    ui->ReviewCardCount->setText(QString::number(counters[1]));
-    ui->PendingCardCount->setText(QString::number(counters[2]));
+    const std::vector counters = currentDeckObj.getCardInformation();
+    if (!counters.empty()) {
+        ui->UnseenCardCount->setText(QString::number(counters[0]));
+        ui->ReviewCardCount->setText(QString::number(counters[1]));
+        ui->PendingCardCount->setText(QString::number(counters[2]));
+    }
 }
 
 
@@ -679,74 +740,73 @@ void MainWindow::on_GetAnswerButton_clicked() {
     // Make answer visible
     ui->cardAnswer->setVisible(true);
 
-    Card card;
     disconnect(ui->AgainButton, nullptr, this, nullptr);
     disconnect(ui->HardButton, nullptr, this, nullptr);
     disconnect(ui->GoodButton, nullptr, this, nullptr);
     disconnect(ui->EasyButton, nullptr, this, nullptr);
 
     // Add button click listeners
-    connect(ui->AgainButton, &QPushButton::clicked, this, [this, card]() {
-        onButtonOptionSelected(ui->AgainButton, card);
+    connect(ui->AgainButton, &QPushButton::clicked, this, [this]() {
+        onButtonOptionSelected(ui->AgainButton);
     });
-    connect(ui->HardButton, &QPushButton::clicked, this, [this, card]() {
-        onButtonOptionSelected(ui->HardButton, card);
+    connect(ui->HardButton, &QPushButton::clicked, this, [this]() {
+        onButtonOptionSelected(ui->HardButton);
     });
-    connect(ui->GoodButton, &QPushButton::clicked, this, [this, card]() {
-        onButtonOptionSelected(ui->GoodButton, card);
+    connect(ui->GoodButton, &QPushButton::clicked, this, [this]() {
+        onButtonOptionSelected(ui->GoodButton);
     });
-    connect(ui->EasyButton, &QPushButton::clicked, this, [this, card]() {
-        onButtonOptionSelected(ui->EasyButton, card);
+    connect(ui->EasyButton, &QPushButton::clicked, this, [this]() {
+        onButtonOptionSelected(ui->EasyButton);
     });
 }
 
-void MainWindow::onButtonOptionSelected(QPushButton* button, Card card) {
-    if (!button) return; // Safety check
+void MainWindow::onButtonOptionSelected(QPushButton* button) {
+    if (!button) return;
 
-    // Load sound
-    QSoundEffect *soundEffect = new QSoundEffect(this);
-    soundEffect->setVolume(0.5f);  // Set the volume (adjust as necessary)
+    // Disconnect buttons to prevent multiple clicks
+    disconnect(ui->AgainButton, nullptr, this, nullptr);
+    disconnect(ui->HardButton, nullptr, this, nullptr);
+    disconnect(ui->GoodButton, nullptr, this, nullptr);
+    disconnect(ui->EasyButton, nullptr, this, nullptr);
 
-    // Set file
-    soundEffect->setSource(QUrl::fromLocalFile(QCoreApplication::applicationDirPath() + "/pop.wav"));
+    if (popSound && popSound->isLoaded()) {
+        popSound->play();
+    }
 
-    // Create event listener for sound load
-    connect(soundEffect, &QSoundEffect::loadedChanged, this, [soundEffect]() {
-        if (soundEffect->isLoaded()) {
-            soundEffect->play();
-
-            // Delete the QSoundEffect after playing
-            QObject::connect(soundEffect, &QSoundEffect::playingChanged, soundEffect, [soundEffect]() {
-                if (!soundEffect->isPlaying()) {
-                    soundEffect->deleteLater(); // Safe deletion
-                }
-            });
-        } else {
-            qDebug() << "Failed to load sound!";
-        }
-    });
-
-    // Determine the interval based on the button
-    QString buttonText = button->text();
-
-    int button_id = 0;
-    if (buttonText == "Again") button_id = 1; // Again button
-    else if (buttonText == "Hard") button_id = 2; // Hard button
-    else if (buttonText == "Good") button_id = 3; // Good button
-    else if (buttonText == "Easy") button_id = 4; // Easy button
-
-    // Process the card response
-    Deck deck(this->getCurrentDeck());
-    const bool card_updated = deck.processCardResponse(card, button_id);
-    if (!card_updated) {
-        if(deck.getStudyQueueSize() != 0) this->statusBar()->showMessage("Error: Card could not be updated.");
-        proceedToNextCard(deck);
+    if (this->currentCard.isEmpty()) {
+        Logger::warn("Attempted to process response for an empty card", "Main");
+        proceedToNextCard();
         return;
     }
+
+    QString buttonText = button->text();
+    int button_id = 0;
+    if (buttonText == "Again") button_id = 1;
+    else if (buttonText == "Hard") button_id = 2;
+    else if (buttonText == "Good") button_id = 3;
+    else if (buttonText == "Easy") button_id = 4;
+
+    // Process the card response
+    if (!currentDeckObj.processCardResponse(this->currentCard, button_id)) {
+        Logger::error("Card response could not be updated", "Main");
+    }
+
+    proceedToNextCard();
 }
 
 void MainWindow::on_StatsButton_clicked(){
-    StatsDialog* dialog = new StatsDialog();
+    DiscordManager::updatePresence("Viewing Stats", "", "stats");
+    // Prevent multiple dialogs from being opened if the user clicks rapidly
+    static bool isOpening = false;
+    if (isOpening) return;
+    isOpening = true;
+
+    Logger::info("Opening Statistics Dialog", "Main");
+
+    StatsDialog* dialog = new StatsDialog(this);
+    connect(dialog, &QDialog::finished, this, [this]() {
+        isOpening = false;
+    });
     connect(dialog, &QDialog::finished, dialog, &QObject::deleteLater);
     dialog->exec();
 }
@@ -757,13 +817,11 @@ void MainWindow::on_EndStudyButton_clicked() {
 
     ui->studyFinished->setVisible(true);
 
-    Deck deck(this->currentDeck);
-    const bool studyEnd_status = deck.endStudy();
-    if(!studyEnd_status){
+    if(!currentDeckObj.endStudy()){
         this->statusBar()->showMessage("Error: Could not end studying session.");
         return;
     }
 
-    this->currentDeck.clear();
+    this->currentDeckID.clear();
 }
 

@@ -61,6 +61,8 @@ public:
 
     // Stats
     void getStats() const override;
+    DeckStats getDeckStats() const;
+    DeckStats getTotalDeckStats() const;
 };
 
 #endif

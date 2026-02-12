@@ -5,13 +5,18 @@
 #include <QDebug>
 #include <QString>
 
+#include "Backend/Utilities/Logger.hpp"
 #include "Backend/Classes/Deck.hpp"
+#include "Backend/Classes/Stats/UserStats.hpp"
 #include "Backend/Database/setup.hpp"
 #include "Backend/Utilities/statsUpdateContext.hpp"
 #include "Backend/Utilities/createUniqueDeck.hpp"
 #include "Backend/Classes/Algorithms/SM2.hpp"
 #include "Backend/Classes/Algorithms/Leitner.hpp"
 
+// DEBUG: Speed up time by changing the interval multiplier (default 86400 for days)
+// Set this to 60 to treat intervals as minutes for testing.
+const int STUDY_INTERVAL_MULTIPLIER = 86400; 
 // Constructors
 Deck::Deck(const QString& name, const std::queue<Card>& c)
     : name(name), stats() {}
@@ -39,7 +44,7 @@ int Deck::getStudyQueueSize() const { return this->studyQueue.size(); }
 // Database Operations
 // Create Deck
 bool Deck::create() {
-    logAction("Create Deck");
+    Logger::entity("Creating Deck", this->name);
 
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
@@ -47,7 +52,7 @@ bool Deck::create() {
     // Retrieve saved deck ID
     query.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Could not retrieve user ID - create Deck:" << query.lastError().text();
+        Logger::error("Could not retrieve user ID for deck creation", "Deck");
         return false;
     }
 
@@ -63,20 +68,13 @@ bool Deck::create() {
     query.addBindValue(user_id);
     query.addBindValue(this->name.isEmpty() ? "Default" : this->name);
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to check for deck:" << query.lastError().text();
+        Logger::error("Failed to check for existing deck", "Deck");
         return false;
     }
 
     const QString deckName = this->name.isEmpty() ? "Default" : this->name;
     if (query.next() && query.value(0).toInt() > 0) {
-        // Check is required to avoid "" in debug output
-        if (this->name.isEmpty()) qDebug() << "[DB] Default deck already exists. For a new deck, specify a name.";
-        else qDebug() << "[DB] Deck" << deckName << "already exists.";
-        return false;
-    }
-
-    if (!query.exec()) {
-        qDebug() << "[DB] Failed to create deck settings:" << query.lastError().text();
+        Logger::warn(QString("Deck '%1' already exists").arg(deckName), "Deck");
         return false;
     }
 
@@ -89,10 +87,10 @@ bool Deck::create() {
 
 // Delete Deck
 bool Deck::_delete() const {
-    logAction("Delete Deck");
+    Logger::entity("Deleting Deck", this->id);
 
     if (this->id.isEmpty()) {
-        qDebug() << "[DB] Deck Delete - Missing ID.";
+        Logger::error("Deck Delete - Missing ID", "Deck");
         return false;
     }
 
@@ -103,16 +101,16 @@ bool Deck::_delete() const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to delete deck:" << query.lastError().text();
+        Logger::error("Failed to delete deck: " + query.lastError().text(), "Deck");
         return false;
     }
 
-    return true; // DecksCards and DeckStats are automatically cleaned up by cascading rules.
+    return true;
 }
 
 // Fetch Deck from database
 bool Deck::fetch() {
-    logAction("Fetch Deck");
+    Logger::entity("Fetching Deck", this->id);
 
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
@@ -122,7 +120,7 @@ bool Deck::fetch() {
         query.addBindValue(this->id);
 
         if (!query.exec() || !query.next()) {
-            qDebug() << "[DB] Deck Fetch - Failed to fetch deck by ID:" << query.lastError().text();
+            Logger::error("Failed to fetch deck by ID: " + query.lastError().text(), "Deck");
             return false;
         }
 
@@ -132,13 +130,13 @@ bool Deck::fetch() {
         query.addBindValue(this->name);
 
         if (!query.exec() || !query.next()) {
-            qDebug() << "[DB] Deck Fetch - Failed to fetch deck by name:" << query.lastError().text();
+            Logger::error("Failed to fetch deck by name: " + query.lastError().text(), "Deck");
             return false;
         }
 
         this->id = query.value("id").toString();
     } else {
-        qDebug() << "[DB] Deck Fetch - Unable to fetch without ID or username.";
+        Logger::error("Unable to fetch deck without ID or name", "Deck");
         return false;
     }
 
@@ -147,7 +145,7 @@ bool Deck::fetch() {
 
 // Add Card to Deck
 bool Deck::addCard(Card& card) {
-    logAction("Add Card to Deck");
+    Logger::entity("Adding Card to Deck", card.getID());
 
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
@@ -156,16 +154,16 @@ bool Deck::addCard(Card& card) {
     query.addBindValue(card.getID());
 
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Card not found in Cards table, creating Card...";
+        Logger::db("Card not found, creating Card...", "Deck");
         if (!card.create()) {
-            qDebug() << "[DB] Could not create Card.";
+            Logger::error("Could not create Card", "Deck");
             return false;
         }
     }
 
     query.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Could not fetch saved user:" << query.lastError().text();
+        Logger::error("Could not fetch saved user", "Deck");
         return false;
     }
 
@@ -176,40 +174,33 @@ bool Deck::addCard(Card& card) {
     query.addBindValue(card.getID());
 
     if (!query.exec()) {
-        qDebug() << "[DB] Could not link Card and Deck:" << query.lastError().text();
-        return false;
-    }
-
-    CardStats card_stats;
-    card_stats.setCardID(card.getID());
-    card_stats.setUserID(user_id);
-    if (!card_stats.initialize()) {
-        qDebug() << "[DB - CardStats] Failed to save stats for deck ID" << this->id;
+        Logger::error("Could not link Card and Deck", "Deck");
         return false;
     }
 
     // Update Deck Stats
     stats.setDeckID(this->id);
+    stats.initialize(); // Ensure record for today exists
 
     StatsUpdateContext context;
     context.type = StatsUpdateType::Deck;
-    context.deck.card_added = true;
+    context.deck.update_card_added = true;
     const bool deck_status_updated = this->stats.update(context);
     if (!deck_status_updated) {
-        qDebug() << "[DB - DeckStats] Failed to update deck stats.";
+        Logger::error("Failed to update deck stats", "Deck");
         return false;
     }
 
-    qDebug() << "[DB - Deck] Successfully added card to deck with initialized stats.";
+    Logger::info("Successfully added card to deck", "Deck");
     return true;
 }
 
 // Rename Deck
 bool Deck::rename(const QString& newName) {
-    logAction("Rename Deck");
+    Logger::entity("Renaming Deck", this->id);
 
     if (newName.trimmed().isEmpty()) {
-        qDebug() << "[DB] Deck Rename - Invalid name specified.";
+        Logger::warn("Deck Rename - Invalid name specified", "Deck");
         return false;
     }
 
@@ -221,21 +212,21 @@ bool Deck::rename(const QString& newName) {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to execute query:" << query.lastError().text();
+        Logger::error("Failed to rename deck: " + query.lastError().text(), "Deck");
         return false;
     }
 
-    qDebug() << "[Deck] Renamed deck to" << newName;
+    Logger::info(QString("Renamed deck to '%1'").arg(newName), "Deck");
     this->name = newName;
     return true;
 }
 
 // Set Deck description
 bool Deck::setDescription(const QString& description) const {
-    logAction("Set Deck Description");
+    Logger::entity("Setting Deck Description", this->id);
 
     if (description.trimmed().isEmpty()) {
-        qDebug() << "[DB] Deck Set Description - Missing description.";
+        Logger::warn("Deck Set Description - Empty description", "Deck");
         return false;
     }
 
@@ -247,7 +238,7 @@ bool Deck::setDescription(const QString& description) const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Could not update Deck description:" << query.lastError().text();
+        Logger::error("Could not update Deck description: " + query.lastError().text(), "Deck");
         return false;
     }
 
@@ -256,7 +247,7 @@ bool Deck::setDescription(const QString& description) const {
 
 // Get Deck description
 QString Deck::getDescription() const {
-    logAction("Get Deck Description");
+    Logger::entity("Getting Deck Description", this->id);
 
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
@@ -265,7 +256,7 @@ QString Deck::getDescription() const {
     query.addBindValue(this->id);
 
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Could not retrieve Deck description:" << query.lastError().text();
+        Logger::error("Could not retrieve Deck description", "Deck");
         return {};
     }
 
@@ -274,7 +265,7 @@ QString Deck::getDescription() const {
 
 // List all Deck cards
 std::vector<Card> Deck::listCards() const {
-    logAction("List Deck Cards");
+    Logger::entity("Listing Deck Cards", this->id);
 
     std::vector<Card> cards;
     const Database* db = Database::getInstance();
@@ -284,7 +275,7 @@ std::vector<Card> Deck::listCards() const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to execute query:" << query.lastError().text();
+        Logger::error("Failed to list cards: " + query.lastError().text(), "Deck");
         return cards;
     }
 
@@ -297,8 +288,6 @@ std::vector<Card> Deck::listCards() const {
 
 // Get card count in the deck
 int Deck::getCardCount() const {
-    logAction("Get Deck Card Count");
-
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
@@ -306,7 +295,7 @@ int Deck::getCardCount() const {
     query.addBindValue(this->id);
 
     if (!query.exec()) {
-        qDebug() << "[DB] Failed to execute query:" << query.lastError().text();
+        Logger::error("Failed to get card count: " + query.lastError().text(), "Deck");
         return -1;
     }
 
@@ -314,57 +303,88 @@ int Deck::getCardCount() const {
 }
 
 std::vector<int> Deck::getCardInformation() const {
-    logAction("Get Deck Card Information");
-
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    // Fetch all cards
-    query.prepare(QStringLiteral("SELECT COUNT(*) FROM DecksCards WHERE deck_id = ?"));
+    // Fetch user ID
+    QSqlQuery userQuery(db->getDB());
+    userQuery.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
+    if (!userQuery.exec() || !userQuery.next()) return {0, 0, 0};
+    const QString currentUserID = userQuery.value(0).toString();
+
+    // Fetch limits
+    query.prepare("SELECT daily_new_card_limit FROM DeckSettings WHERE id = ?");
     query.addBindValue(this->id);
+    int newLimit = 20;
+    if (query.exec() && query.next()) newLimit = query.value(0).toInt();
 
-    if (!query.exec()) {
-        qDebug() << "[DB] Failed to execute query:" << query.lastError().text();
-        return {};
-    }
-
+    // Count new cards studied today
     query.prepare(QStringLiteral(R"(
-        SELECT SUM(CASE WHEN Cards.type = 'New' THEN 1 ELSE 0 END),
-               SUM(CASE WHEN Cards.type = 'Learning' THEN 1 ELSE 0 END),
-               SUM(CASE WHEN Cards.type = 'Review' THEN 1 ELSE 0 END)
-        FROM Cards
-        INNER JOIN DecksCards ON Cards.id = DecksCards.card_id
-        WHERE DecksCards.deck_id = ?
+        SELECT COUNT(DISTINCT id) FROM CardStats
+        WHERE user_id = ? AND date = DATE('now')
+          AND id IN (SELECT card_id FROM DecksCards WHERE deck_id = ?)
+          AND id NOT IN (SELECT id FROM CardStats WHERE date < DATE('now'))
     )"));
+    query.addBindValue(currentUserID);
     query.addBindValue(this->id);
+    int newStudiedToday = 0;
+    if (query.exec() && query.next()) newStudiedToday = query.value(0).toInt();
+    
+    int remainingNew = std::max(0, newLimit - newStudiedToday);
 
-    if (!query.exec()) {
-        qDebug() << "[DB] Failed to execute query:" << query.lastError().text();
-        return {};
-    }
+    // Count available New cards (up to remaining limit)
+    query.prepare(R"(
+        SELECT COUNT(*) FROM Cards c
+        INNER JOIN DecksCards dc ON c.id = dc.card_id
+        WHERE dc.deck_id = ? AND c.type = 'New'
+          AND c.id NOT IN (SELECT id FROM CardStats WHERE user_id = ?)
+    )");
+    query.addBindValue(this->id);
+    query.addBindValue(currentUserID);
+    int availableNew = 0;
+    if (query.exec() && query.next()) availableNew = std::min(remainingNew, query.value(0).toInt());
 
-    if (!query.next()) return {};
+    // Count available Learning cards
+    query.prepare(R"(
+        SELECT COUNT(*) FROM Cards c
+        INNER JOIN DecksCards dc ON c.id = dc.card_id
+        WHERE dc.deck_id = ? AND c.type = 'Learning'
+    )");
+    query.addBindValue(this->id);
+    int availableLearn = 0;
+    if (query.exec() && query.next()) availableLearn = query.value(0).toInt();
 
-    return {
-        query.value(0).toInt(),
-        query.value(1).toInt(),
-        query.value(2).toInt()
-    };
+    // Count due Review cards
+    query.prepare(R"(
+        SELECT COUNT(*) FROM Cards c
+        INNER JOIN DecksCards dc ON c.id = dc.card_id
+        INNER JOIN CardStats cs ON c.id = cs.id
+        WHERE dc.deck_id = ? AND c.type = 'Review' AND cs.user_id = ?
+          AND (cs.last_seen + (cs.interval * ?)) <= ?
+    )");
+    query.addBindValue(this->id);
+    query.addBindValue(currentUserID);
+    query.addBindValue(STUDY_INTERVAL_MULTIPLIER);
+    query.addBindValue(QDateTime::currentSecsSinceEpoch());
+    int availableReview = 0;
+    if (query.exec() && query.next()) availableReview = query.value(0).toInt();
+
+    return { availableNew, availableLearn, availableReview };
 }
 
 // Studying Process
 
 // Start study session
 bool Deck::study() {
-    logAction("Deck Study");
+    Logger::entity("Starting Study Session", this->id);
 
     if (this->id.isEmpty()) {
-        qDebug() << "[DB] Deck Study - Missing ID.";
+        Logger::error("Deck Study - Missing ID", "Deck");
         return false;
     }
 
     if (getCardCount() == 0) {
-        qDebug() << "[DB] Deck Study - No cards in the deck.";
+        Logger::info("Deck Study - No cards in the deck", "Deck");
         return false;
     }
 
@@ -383,7 +403,7 @@ bool Deck::study() {
     int maxReviewCards = 0;
 
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Failed to fetch deck settings:" << query.lastError().text();
+        Logger::error("Failed to fetch deck settings: " + query.lastError().text(), "Deck");
         return false;
     }
 
@@ -393,51 +413,70 @@ bool Deck::study() {
     // Load DeckStats
     DeckStats deckStats;
     deckStats.setDeckID(this->id);
-    if (!deckStats.load()) {
-        // Initialize DeckStats if no record exists
-        if (!deckStats.initialize()) {
-            qDebug() << "[DB] Failed to initialize deck stats.";
-            return false;
-        }
+    delete deckStats.load();
+    if (!deckStats.initialize()) {
+        Logger::error("Failed to initialize deck stats", "Deck");
+        return false;
     }
 
     const int cardsSeen = deckStats.getCardsSeen();
-    // Check if the seen cards are less than the daily card limit and review limit
     if (cardsSeen >= maxReviewCards) {
-        qDebug() << "[Info] Review card limit reached.";
+        Logger::info("Review card limit reached", "Deck");
         return false;
     }
 
     // Initialize session start time
     StatsUpdateContext context;
     context.type = StatsUpdateType::Deck;
-    context.deck.start_study = true;
+    context.deck.update_start_study = true;
     if (!deckStats.update(context)) {
-        qDebug() << "[DB] Could not update deck stats on study:" << query.lastError().text();
+        Logger::error("Could not update deck stats session start", "Deck");
         return false;
     }
 
-    qDebug() << "[Info] Studying Deck" << this->id;
+    // Fetch total cards in deck for logging
+    QSqlQuery countQuery(db->getDB());
+    countQuery.prepare("SELECT COUNT(*) FROM DecksCards WHERE deck_id = ?");
+    countQuery.addBindValue(this->id);
+    if (countQuery.exec() && countQuery.next()) {
+        Logger::info(QString("Total cards in deck: %1").arg(countQuery.value(0).toInt()), "Deck");
+    }
+
+    // Fetch the current user's ID to bind to the query
+    QSqlQuery userQuery(db->getDB());
+    userQuery.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
+    if (!userQuery.exec() || !userQuery.next()) {
+        Logger::error("Could not retrieve user ID for study query", "Deck");
+        return false;
+    }
+    const QString currentUserID = userQuery.value(0).toString();
 
     // Fetch due and learning cards for studying
     query.prepare(QStringLiteral(R"(
         SELECT c.id, c.question, c.answer, c.type,
-               (cs.last_seen + cs.interval) AS due_date
+               COALESCE(latest_cs.last_seen + (latest_cs.interval * ?), 0) AS due_date
         FROM Cards c
         INNER JOIN DecksCards dc ON c.id = dc.card_id
-        INNER JOIN CardStats cs ON c.id = cs.id
+        LEFT JOIN (
+            SELECT id, last_seen, interval, 
+                   ROW_NUMBER() OVER (PARTITION BY id ORDER BY date DESC) as rn
+            FROM CardStats
+            WHERE user_id = ?
+        ) latest_cs ON c.id = latest_cs.id AND latest_cs.rn = 1
         WHERE dc.deck_id = ?
-          AND (cs.last_seen + cs.interval <= ? OR c.type = ?)
+          AND (latest_cs.id IS NULL OR (latest_cs.last_seen + (latest_cs.interval * ?)) <= ? OR c.type = 'Learning')
         ORDER BY due_date ASC
-        LIMIT ?
+        LIMIT 1000
     )"));
+
+    query.addBindValue(STUDY_INTERVAL_MULTIPLIER);
+    query.addBindValue(currentUserID);
     query.addBindValue(this->id);
-    query.addBindValue(QDateTime::currentSecsSinceEpoch());  // Current timestamp in seconds
-    query.addBindValue(static_cast<int>(CardType::Learning));  // Card type (1 for Learning)
-    query.addBindValue(dailyNewCardLimit);  // Limit on number of new cards
+    query.addBindValue(STUDY_INTERVAL_MULTIPLIER);
+    query.addBindValue(QDateTime::currentSecsSinceEpoch());
 
     if (!query.exec()) {
-        qDebug() << "[DB] Could not retrieve cards for study:" << query.lastError().text();
+        Logger::error("Could not retrieve cards for study: " + query.lastError().text(), "Deck");
         return false;
     }
 
@@ -459,20 +498,19 @@ bool Deck::study() {
     }
 
     if (this->studyQueue.empty()) {
-        qDebug() << "[DB] No cards available for study in this deck.";
+        Logger::info("No cards available for study in this deck", "Deck");
         return false;
     }
 
-    qDebug() << "[Info] Study session ready. Cards loaded:" << this->studyQueue.size();
+    Logger::info(QString("Study session ready. Cards loaded: %1").arg(QString::number(this->studyQueue.size())), "Deck");
     return true;
 }
 
 // Ends study session
 bool Deck::endStudy() const {
-    logAction("End Deck Study");
+    Logger::entity("Ending Study Session", this->id);
 
     if (this->id.isEmpty()) {
-        qDebug() << "[DB] Deck Study - Missing ID.";
         return false;
     }
 
@@ -483,30 +521,25 @@ bool Deck::endStudy() const {
     DeckStats deckStats;
     deckStats.setDeckID(this->id);
 
-    const Stats* stats = deckStats.load();
-    if (!stats) {
-        // Initialize DeckStats if no record exists
-        if (!deckStats.initialize()) {
-            qDebug() << "[DB] Failed to initialize deck stats.";
-            return false;
-        }
+    delete deckStats.load();
+    if (!deckStats.initialize()) {
+        return false;
     }
 
     const qint64 sessionStartTimeSecs = deckStats.getSessionStartTime();
     const qint64 existingTimeSpent = deckStats.getTimeSpent();
-    const QDateTime sessionStartTime = QDateTime::fromSecsSinceEpoch(sessionStartTimeSecs);
 
     if (existingTimeSpent < 0) {
-        qDebug() << "[Error] Invalid existing time spent:" << existingTimeSpent;
+        Logger::error("Invalid existing time spent", "Deck");
         return false;
     }
 
-    const qint64 totalTimeSpent = existingTimeSpent + (QDateTime::currentDateTime().toSecsSinceEpoch() - sessionStartTimeSecs);
+    const qint64 timeSpentInSession = QDateTime::currentDateTime().toSecsSinceEpoch() - sessionStartTimeSecs;
 
     // Fetch selected user
     query.prepare("SELECT id FROM SavedUser LIMIT 1");
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Could not fetch saved user:" << query.lastError().text();
+        Logger::error("Could not fetch saved user", "Deck");
         return false;
     }
 
@@ -514,25 +547,27 @@ bool Deck::endStudy() const {
 
     StatsUpdateContext context;
     context.type = StatsUpdateType::Deck;
-    context.deck.time_spent = totalTimeSpent;
+    context.deck.update_time_spent = true;
+    context.deck.time_spent_increment = timeSpentInSession;
 
     if (!deckStats.update(context)) {
-        qDebug() << "[Error] Failed to update deck stats.";
+        Logger::error("Failed to update deck stats at session end", "Deck");
         return false;
     }
 
-    qDebug() << "[Study] Study Session for deck" << this->id << "ended successfully.";
+    Logger::info(QString("Study session for deck %1 ended. Session duration: %2s").arg(this->id, QString::number(timeSpentInSession)), "Deck");
     return true;
 }
 
 // Process card response on button press
 bool Deck::processCardResponse(Card& card, const int buttonPressed) {
-    if (this->studyQueue.empty()) {
-        qDebug() << "[Info] Study Queue is empty.";
+    if (this->id.isEmpty()) {
+        qDebug() << "[DB] Process Card Response - Missing Deck ID.";
         return false;
     }
-    if (this->id.isEmpty()) {
-        qDebug() << "[DB] Process Card Response - Missing ID.";
+
+    if (card.getID().isEmpty()) {
+        Logger::error("Process Card Response - Missing Card ID", "Deck");
         return false;
     }
 
@@ -554,51 +589,86 @@ bool Deck::processCardResponse(Card& card, const int buttonPressed) {
     }
 
     const QString algorithm = query.value(0).toString();
+    Logger::info("Using algorithm: " + algorithm, "Deck");
 
-    // Load card stats
+    // Fetch the current user's ID
+    QSqlQuery userQuery(db->getDB());
+    userQuery.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
+    if (!userQuery.exec() || !userQuery.next()) {
+        Logger::error("Could not retrieve user ID for CardStats", "Deck");
+        return false;
+    }
+    const QString currentUserID = userQuery.value(0).toString();
+
+    // Load latest card stats
     CardStats cardStats;
     cardStats.setCardID(card.getID());
-    cardStats.setUserID(this->id);
+    cardStats.setUserID(currentUserID);
 
-    if (!cardStats.load()) {
-        qDebug() << "[DB] Failed to load card stats. Initializing new stats.";
-        if (!cardStats.initialize()) {
-            qDebug() << "[DB] Failed to initialize card stats.";
-            return false;
-        }
+    delete cardStats.load(); // Load latest history if available
+    
+    // Ensure today's record exists (carries over latest stats if needed)
+    if (!cardStats.initialize()) {
+        Logger::error("Failed to initialize card stats for today", "Deck");
+        return false;
     }
 
     // Apply the algorithm
     SM2Algorithm sm2;
     LeitnerAlgorithm leitner;
 
-    if (algorithm == "SM2") sm2.calculateInterval(cardStats, buttonPressed);
-    else if (algorithm == "leitner") leitner.calculateInterval(cardStats, buttonPressed);
+    if (algorithm.toUpper() == "SM2") sm2.calculateInterval(cardStats, buttonPressed);
+    else if (algorithm.toLower() == "leitner") leitner.calculateInterval(cardStats, buttonPressed);
     else {
-        qDebug() << "[Error] Unknown algorithm:" << algorithm;
+        Logger::error("Unknown algorithm: " + algorithm, "Deck");
         return false;
     }
-
-    qDebug() << cardStats.getTimeSpent();
 
     // Update the card's stats
     StatsUpdateContext context;
     context.type = StatsUpdateType::Card;
     if (algorithm == "SM2") {
-        context.card.repetitions = true;
-        context.card.ease_factor = cardStats.getEaseFactor();
+        context.card.update_repetitions = true;
+        context.card.update_ease_factor = true;
     }
-    context.card.interval = cardStats.getInterval();
-    context.card.last_seen = true;
-    context.card.times_seen = true;
-    context.card.time_spent = QDateTime::currentSecsSinceEpoch() - cardStats.getCardStartTime();
+    context.card.update_interval = true;
+    context.card.update_last_seen = true;
+    context.card.update_times_seen = true;
+    context.card.update_time_spent = true;
+    context.card.time_spent_increment = QDateTime::currentSecsSinceEpoch() - cardStats.getCardStartTime();
 
-    qDebug() << cardStats.getInterval();
+    Logger::info(QString("Processing response for card %1 (Button: %2, Interval: %3)").arg(card.getID(), QString::number(buttonPressed), QString::number(cardStats.getInterval())), "Deck");
 
     if (!cardStats.update(context)) {
-        qDebug() << "[DB] Failed to update card stats:" << query.lastError().text();
+        Logger::error("Failed to update card stats", "Deck");
         return false;
     }
+
+    // Update User and Deck Statistics
+    UserStats userStats(currentUserID);
+    userStats.initialize(); // Ensure record for today exists
+
+    DeckStats deckStats;
+    deckStats.setDeckID(this->id);
+    deckStats.initialize(); // Ensure record for today exists
+
+    StatsUpdateContext userContext(StatsUpdateType::User);
+    userContext.user.update_button_counts = true;
+    userContext.user.update_cards_seen = true;
+    userContext.user.cards_seen_increment = 1;
+
+    switch (buttonPressed) {
+        case 1: userContext.user.pressed_again = 1; break;
+        case 2: userContext.user.pressed_hard = 1; break;
+        case 3: userContext.user.pressed_good = 1; break;
+        case 4: userContext.user.pressed_easy = 1; break;
+    }
+
+    userStats.update(userContext);
+
+    StatsUpdateContext deckContext(StatsUpdateType::Deck);
+    deckContext.deck.update_cards_seen = true;
+    deckStats.update(deckContext);
 
     // Handle Learning cards (Again or Hard)
     if (buttonPressed == 1 || buttonPressed == 2) { // Again or Hard
@@ -607,30 +677,16 @@ bool Deck::processCardResponse(Card& card, const int buttonPressed) {
     } else {
         card.setType(CardType::Review);
     }
-
-    // Update DeckStats
-    query.prepare(QStringLiteral(R"(
-        UPDATE DeckStats
-        SET cards_seen = cards_seen + 1
-        WHERE id = ? AND date = ?
-    )"));
-    query.addBindValue(this->id);
-    query.addBindValue(QDate::currentDate());
-
-    if (!query.exec()) {
-        qDebug() << "[DB] Failed to update DeckStats:" << query.lastError().text();
-        return false;
-    }
+    
+    card.saveType(); // Persist the type change to DB
 
     return true;
 }
 
 // Get Next Card
 Card Deck::getNextCard() {
-    logAction("Get Deck Next Card");
-
     if (this->studyQueue.empty()) {
-        qDebug() << "[Info] Study Queue is empty.";
+        Logger::info("Study Queue is empty", "Deck");
         return {};
     }
 
@@ -646,7 +702,7 @@ Card Deck::getNextCard() {
     query.addBindValue(this->id);
 
     if (!query.exec() || !query.next()) {
-        qDebug() << "[DB] Failed to fetch deck settings:" << query.lastError().text();
+        Logger::error("Failed to fetch deck settings: " + query.lastError().text(), "Deck");
         return {};
     }
 
@@ -655,56 +711,102 @@ Card Deck::getNextCard() {
     // Load DeckStats
     DeckStats deckStats;
     deckStats.setDeckID(this->id);
-    Stats* loadedStats = deckStats.load();
-
-    if (!loadedStats) {
-        // Initialize DeckStats if no record exists
+    if (Stats* loadedStats = deckStats.load()) {
+        delete loadedStats;
+    } else {
         if (!deckStats.initialize()) {
-            qDebug() << "[DB] Failed to initialize deck stats.";
+            Logger::error("Failed to initialize deck stats", "Deck");
             return {};
         }
     }
 
-    // Fetch cards seen count from DeckStats
-    int dailyNewCardsStudied = deckStats.getCardsSeen();
+    // Fetch dailyNewCardsStudiedToday from CardStats
+    query.prepare(QStringLiteral(R"(
+        SELECT COUNT(DISTINCT id)
+        FROM CardStats
+        WHERE user_id = (SELECT id FROM SavedUser LIMIT 1)
+          AND date = DATE('now')
+          AND id IN (SELECT card_id FROM DecksCards WHERE deck_id = ?)
+          AND id NOT IN (SELECT id FROM CardStats WHERE date < DATE('now'))
+    )"));
+    query.addBindValue(this->id);
+
+    int dailyNewCardsStudiedToday = 0;
+    if (query.exec() && query.next()) {
+        dailyNewCardsStudiedToday = query.value(0).toInt();
+    }
 
     Card nextCard = this->studyQueue.front();
     this->studyQueue.pop();
 
-    // Check if the next card is a "New" card and the daily limit is reached
-    if (nextCard.getType() == CardType::New) {
-        if (dailyNewCardsStudied >= dailyNewCardLimit) {
-            qDebug() << "[Info] Daily new card limit reached.";
+    // Check if the next card is "Brand New" (has NO stats records at all)
+    query.prepare(QStringLiteral("SELECT COUNT(*) FROM CardStats WHERE id = ?"));
+    query.addBindValue(nextCard.getID());
+    
+    bool isBrandNew = true;
+    if (query.exec() && query.next() && query.value(0).toInt() > 0) {
+        isBrandNew = false;
+    }
+
+    if (isBrandNew) {
+        if (dailyNewCardsStudiedToday >= dailyNewCardLimit) {
+            Logger::info("Daily new card limit reached", "Deck");
             return {};
         }
     }
 
     // Set the timer in the database using CardStats class
+    QSqlQuery userQuery(db->getDB());
+    userQuery.prepare(QStringLiteral("SELECT id FROM SavedUser LIMIT 1"));
+    if (!userQuery.exec() || !userQuery.next()) {
+        Logger::error("Could not retrieve user ID for getNextCard", "Deck");
+        return {};
+    }
+    const QString currentUserID = userQuery.value(0).toString();
+
     CardStats cardStats;
     cardStats.setCardID(nextCard.getID());
-    cardStats.setUserID(this->id);
+    cardStats.setUserID(currentUserID);
 
-    if (!cardStats.load()) {
-        qDebug() << "[DB] Failed to load card stats. Initializing new stats.";
+    if (Stats* loadedCardStats = cardStats.load()) {
+        delete loadedCardStats;
+    } else {
         if (!cardStats.initialize()) {
-            qDebug() << "[DB] Failed to initialize card stats.";
+            Logger::error("Failed to initialize card stats", "Deck");
             return {};
         }
     }
 
     StatsUpdateContext context;
     context.type = StatsUpdateType::Card;
-    context.card.start_study = true;
+    context.card.update_start_study = true;
 
     if (!cardStats.update(context)) {
-        qDebug() << "[DB] Failed to set card timer.";
+        Logger::error("Failed to set card timer", "Deck");
         return {};
     }
 
     return nextCard;
 }
 
+// Get Deck stats object (For UI)
+DeckStats Deck::getDeckStats() const {
+    DeckStats deckStats;
+    deckStats.setDeckID(this->id);
+    Stats* ptr = deckStats.load();
+    if (ptr) delete ptr;
+    return deckStats;
+}
+
+DeckStats Deck::getTotalDeckStats() const {
+    DeckStats deckStats;
+    deckStats.setDeckID(this->id);
+    Stats* ptr = deckStats.loadTotal();
+    if (ptr) delete ptr;
+    return deckStats;
+}
+
 // Get Deck stats
 void Deck::getStats() const {
-    qDebug() << "Deck Stats";
+    Logger::info("Deck Stats triggered (placeholder)", "Deck");
 }

@@ -52,6 +52,8 @@ public:
 
     // Other
     static CardType stringToType(const QString& str);
+    static QString typeToString(CardType type);
+    bool saveType() const;
 };
 
 #endif

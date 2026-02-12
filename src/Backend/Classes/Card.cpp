@@ -115,7 +115,7 @@ void Card::getStats() const {
 
 // Validator
 bool Card::isEmpty() const {
-    return this->id.isEmpty() && this->question.isEmpty() && this->answer.isEmpty();
+    return this->id.isEmpty() || (this->question.isEmpty() && this->answer.isEmpty());
 }
 
 // Other
@@ -124,4 +124,27 @@ CardType Card::stringToType(const QString& str) {
     if (str == "Learning") return CardType::Learning;
     if (str == "Review") return CardType::Review;
     return CardType::New;
+}
+
+QString Card::typeToString(CardType type) {
+    switch (type) {
+        case CardType::New:      return "New";
+        case CardType::Learning: return "Learning";
+        case CardType::Review:   return "Review";
+    }
+    return "New";
+}
+
+bool Card::saveType() const {
+    const Database *db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+    query.prepare("UPDATE Cards SET type = ? WHERE id = ?");
+    query.addBindValue(typeToString(this->type));
+    query.addBindValue(this->id);
+    
+    if (!query.exec()) {
+        qDebug() << "[DB] Failed to save card type:" << query.lastError().text();
+        return false;
+    }
+    return true;
 }

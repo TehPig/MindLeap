@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>GuideDialog</class>
+ <widget class="QDialog" name="GuideDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>600</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>MindLeap Comprehensive Guide</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QDialog { background-color: #1e1d23; color: #a9b7c6; }
+QLabel { color: #a9b7c6; }
+#scrollArea { background-color: #2b2b2b; border: 1px solid #3a3a3a; border-radius: 8px; }
+#guideLabel { background-color: #2b2b2b; padding: 15px; }
+QPushButton { background-color: #04b97f; color: white; border-radius: 4px; padding: 8px 15px; }
+QPushButton:hover { background-color: #37efba; }</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>15</number>
+   </property>
+   <item>
+    <widget class="QLabel" name="label">
+     <property name="font">
+      <font>
+       <pointsize>16</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Mastering MindLeap</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QScrollArea" name="scrollArea">
+     <property name="widgetResizable">
+      <bool>true</bool>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>578</width>
+        <height>586</height>
+       </rect>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
+       <item>
+        <widget class="QLabel" name="guideLabel">
+         <property name="font">
+          <font>
+           <family>Segoe UI</family>
+           <pointsize>10</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>&lt;html&gt;&lt;head&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { margin-bottom: 8px; }
+h2 { color: #04b97f; margin-top: 15px; }
+h3 { color: #37efba; margin-top: 10px; }
+b { color: #ffffff; }
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+
+&lt;h2&gt;1. The Core Philosophy&lt;/h2&gt;
+&lt;p&gt;MindLeap is built on the &lt;b&gt;Spaced Repetition System (SRS)&lt;/b&gt;. Instead of cramming all at once, you review information at increasing intervals. This exploits the &quot;spacing effect&quot; to move knowledge from short-term to long-term memory.&lt;/p&gt;
+
+&lt;h2&gt;2. Getting Started&lt;/h2&gt;
+&lt;h3&gt;Creating Decks&lt;/h3&gt;
+&lt;p&gt;Start by creating a &lt;b&gt;Deck&lt;/b&gt; for each subject you want to learn (e.g., &quot;Spanish Vocabulary&quot;, &quot;Organic Chemistry&quot;). Decks keep your study material organized and allow you to focus on one topic at a time.&lt;/p&gt;
+&lt;h3&gt;Adding Cards&lt;/h3&gt;
+&lt;p&gt;Inside a deck, click &lt;b&gt;Add Card&lt;/b&gt;. Keep your cards simple: one question and one clear answer. If a concept is complex, break it into multiple smaller cards.&lt;/p&gt;
+
+&lt;h2&gt;3. The Study Process&lt;/h2&gt;
+&lt;p&gt;When you open a deck, you'll see cards that are &lt;b&gt;Due&lt;/b&gt; for review. &lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;b&gt;Recall:&lt;/b&gt; Look at the question and try to remember the answer.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Show Answer:&lt;/b&gt; Click the button to reveal the back of the card.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Rate Yourself:&lt;/b&gt; This is the most important step! Be honest.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;h3&gt;Rating Buttons Explained&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;b&gt;Again:&lt;/b&gt; You didn't remember it. The card stays in the &quot;Learning&quot; phase and will reappear in a few minutes.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Hard:&lt;/b&gt; You remembered it, but with great effort. The next review will be soon.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Good:&lt;/b&gt; You remembered it after a short thought. This is the ideal rating for most cards.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Easy:&lt;/b&gt; You knew the answer instantly. The card will disappear for a long time.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2&gt;4. Advanced Features&lt;/h2&gt;
+&lt;h3&gt;Statistics Tracking&lt;/h3&gt;
+&lt;p&gt;Check the &lt;b&gt;Stats&lt;/b&gt; menu to see your progress. MindLeap tracks your accuracy, how many cards you've added, and how much time you've spent studying. Watching these numbers grow is a great way to stay motivated!&lt;/p&gt;
+&lt;h3&gt;Personalized Settings&lt;/h3&gt;
+&lt;p&gt;Use the &lt;b&gt;Preferences&lt;/b&gt; to adjust daily card limits. Don't set these too high—consistency is better than volume.&lt;/p&gt;
+
+&lt;h2&gt;5. Pro Tips for Success&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;b&gt;Daily Habit:&lt;/b&gt; Spaced repetition only works if you do your reviews every day.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Simple Cards:&lt;/b&gt; The shorter the card, the easier it is to remember.&lt;/li&gt;
+&lt;li&gt;&lt;b&gt;Context:&lt;/b&gt; If you're learning language, try to include a short example sentence.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+         <property name="wordWrap">
+          <bool>true</bool>
+         </property>
+         <property name="textInteractionFlags">
+          <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <set>Qt::Horizontal</set>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>GuideDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>260</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

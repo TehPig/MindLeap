@@ -1,8 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
-project(MindLeap LANGUAGES CXX)
+project(MindLeap VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_definitions(-DPROJECT_VERSION="${PROJECT_VERSION}")
+add_definitions(-DPROJECT_CREATOR="TehPig")
 
 # Enable Qt automatic features
 set(CMAKE_AUTOUIC ON)
@@ -23,6 +26,7 @@ set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 file(GLOB_RECURSE SOURCES "${SRC_DIR}/*.cpp")
 file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
+set(RESOURCES "resources.qrc")
 
 # Handle Windows icon resource
 if(WIN32)
@@ -34,7 +38,7 @@ else()
 endif()
 
 add_executable(${PROJECT_NAME}
-    ${SOURCES} ${HEADERS} ${UI} ${APP_RC}
+    ${SOURCES} ${HEADERS} ${UI} ${RESOURCES} ${APP_RC}
 )
 
 # Include directories
@@ -43,12 +47,27 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+# Discord RPC Configuration
+option(USE_DISCORD "Enable Discord Rich Presence" ON)
+if(USE_DISCORD)
+    # Using the manually cloned and patched source in discord-rpc-tmp
+    set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    add_subdirectory(discord-rpc-tmp)
+
+    target_link_libraries(${PROJECT_NAME} PRIVATE discord-rpc)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
+endif()
+
 # Link Qt libraries
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Widgets
     Qt6::Sql
     Qt6::Multimedia
+    ws2_32
+    psapi
+    advapi32
 )
 
 # GUI app flags
@@ -58,26 +77,8 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE ON
 )
 
-# Copy sound files to executable directory
-file(GLOB_RECURSE SOUNDS "${ASSETS_DIR}/sounds/*.wav")
-if(APPLE)
-    # For macOS, copy to app bundle
-    foreach(SOUND ${SOUNDS})
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${SOUND}
-            $<TARGET_BUNDLE_CONTENT_DIR:${PROJECT_NAME}>/MacOS/
-        )
-    endforeach()
-else()
-    # For Windows/Linux, copy to executable directory
-    foreach(SOUND ${SOUNDS})
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${SOUND}
-            $<TARGET_FILE_DIR:${PROJECT_NAME}>
-        )
-    endforeach()
+if(WIN32 AND MINGW)
+    target_link_options(${PROJECT_NAME} PRIVATE "-static-libgcc" "-static-libstdc++")
 endif()
 
 # ... rest of your CMakeLists.txt (tests) remains unchanged

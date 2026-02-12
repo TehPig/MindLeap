@@ -2,7 +2,7 @@
 // Created by TehPig on 1/5/2025.
 //
 
-#include <QDebug>
+#include "Backend/Utilities/Logger.hpp"
 #include <QDate>
 #include <QSqlError>
 #include <QSqlQuery>
@@ -26,7 +26,8 @@ CardStats::CardStats(
     ) : card_id(card_id), user_id(user_id), date(date), times_seen(times_seen), time_spent_seconds(time_spent_seconds), last_seen(last_seen), easeFactor(easeFactor), interval(interval), repetitions(repetitions), card_start_time(card_start_time) {}
 CardStats::CardStats(const QString& card_id, const QString& user_id) : card_id(card_id), user_id(user_id), times_seen(0), time_spent_seconds(0), card_start_time(0) {}
 // Default constructor
-CardStats::CardStats() : card_id(""), user_id(""), date(QDate::currentDate()), times_seen(0), time_spent_seconds(0), easeFactor(0.0f), interval(0), repetitions(0), card_start_time(0) {}
+CardStats::CardStats() : card_id(""), user_id(""), date(QDate::currentDate()), times_seen(0), time_spent_seconds(0), last_seen(0), easeFactor(2.5f), interval(0), repetitions(0), card_start_time(0) {}
+
 // Getters
 QString CardStats::getCardID() const { return card_id; }
 
@@ -68,26 +69,28 @@ Stats* CardStats::load() {
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare(QStringLiteral("SELECT * FROM CardStats WHERE id = ?"));
+    Logger::db("Loading card stats", QString("CardID: %1").arg(this->card_id));
+
+    query.prepare(QStringLiteral("SELECT * FROM CardStats WHERE id = ? ORDER BY date DESC LIMIT 1"));
     query.addBindValue(this->card_id);
 
     if (!query.exec()) {
-        qDebug() << "[DB - CardStats] Failed to load stats:" << query.lastError().text();
+        Logger::error("Failed to load card stats: " + query.lastError().text(), "CardStats");
         return {};
     }
     if (!query.next()) return {};
 
-    // Load stats into object - ADD PENDING STATS
+    // Load stats into object
     this->card_id = query.value("id").toString();
     this->user_id = query.value("user_id").toString();
     this->date = query.value("date").toDate();
     this->times_seen = query.value("times_seen").toInt();
     this->time_spent_seconds = query.value("time_spent_seconds").toInt();
-    this->last_seen = query.value("last_seen").toInt();
+    this->last_seen = query.value("last_seen").toLongLong();
     this->easeFactor = query.value("ease_factor").toFloat();
     this->interval = query.value("interval").toInt();
     this->repetitions = query.value("repetitions").toInt();
-    this->repetitions = query.value("card_start_time").toInt();
+    this->card_start_time = query.value("card_start_time").toLongLong();
 
     return new CardStats(
         this->card_id,
@@ -103,8 +106,17 @@ Stats* CardStats::load() {
     );
 }
 
+Stats* CardStats::loadTotal() {
+    return load(); // For now, CardStats are row-per-day but we usually only care about latest.
+}
+
 // Initialize stats to database.
 bool CardStats::initialize() const {
+    if (this->card_id.isEmpty()) {
+        Logger::error("Cannot initialize stats for an empty card ID", "CardStats");
+        return false;
+    }
+
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
@@ -113,19 +125,36 @@ bool CardStats::initialize() const {
     query.addBindValue(this->card_id);
 
     if (!query.exec()) {
-        qDebug() << "[DB - CardStats] Failed to check existing stats:" << query.lastError().text();
-        return true;
+        Logger::error("Failed to check existing stats: " + query.lastError().text(), "CardStats");
+        return false;
     }
-    if (query.next() && query.value(0).toInt() > 0) return true; // Stats alrea
+    if (query.next() && query.value(0).toInt() > 0) return true; // Stats already exist
 
-        // Insert new stats entry for the current date
-        query.prepare(QStringLiteral("INSERT INTO CardStats (id, user_id, date) VALUES (?, (SELECT id FROM SavedUser), DATE('now'))"));
-        query.addBindValue(this->card_id);
+    // Fetch the most recent stats to carry over
+    query.prepare(QStringLiteral("SELECT ease_factor, interval, repetitions FROM CardStats WHERE id = ? ORDER BY date DESC LIMIT 1"));
+    query.addBindValue(this->card_id);
 
-        if (!query.exec()) {
-            qDebug() << "[DB - CardStats] Failed to save stats for Card:" << query.lastError().text();
-            return false;
-        }
+    float latestEaseFactor = 2.5f;
+    int latestInterval = 0;
+    int latestRepetitions = 0;
+
+    if (query.exec() && query.next()) {
+        latestEaseFactor = query.value(0).toFloat();
+        latestInterval = query.value(1).toInt();
+        latestRepetitions = query.value(2).toInt();
+    }
+
+    // Insert new stats entry for the current date
+    query.prepare(QStringLiteral("INSERT INTO CardStats (id, user_id, date, ease_factor, interval, repetitions) VALUES (?, (SELECT id FROM SavedUser LIMIT 1), DATE('now'), ?, ?, ?)"));
+    query.addBindValue(this->card_id);
+    query.addBindValue(latestEaseFactor);
+    query.addBindValue(latestInterval);
+    query.addBindValue(latestRepetitions);
+
+    if (!query.exec()) {
+        Logger::error("Failed to save stats for Card: " + query.lastError().text(), "CardStats");
+        return false;
+    }
 
     return true;
 }
@@ -133,56 +162,53 @@ bool CardStats::initialize() const {
 // Update stats based on user interactions
 bool CardStats::update(const StatsUpdateContext& context) {
     if (context.type != StatsUpdateType::Card) {
-        qDebug() << "[DB - CardStats] Invalid context type.";
+        Logger::warn("Invalid context type for CardStats update", "CardStats");
         return false;
     }
 
     QStringList updates;
     QList<QVariant> bindValues;
 
-    // Collect updates and bind values for Card
-    if (context.card.start_study) {
+    // Collect updates based on context flags
+    if (context.card.update_start_study) {
         updates << "card_start_time = ?";
-        bindValues << QDateTime::currentDateTime().toSecsSinceEpoch();
+        this->card_start_time = QDateTime::currentDateTime().toSecsSinceEpoch();
+        bindValues << this->card_start_time;
     }
-    if (context.card.times_seen) {
+    if (context.card.update_times_seen) {
         updates << "times_seen = times_seen + 1";
     }
-    if (context.card.last_seen) {
+    if (context.card.update_last_seen) {
         updates << "last_seen = ?";
-        bindValues << QDateTime::currentDateTime().toSecsSinceEpoch();
+        this->last_seen = QDateTime::currentDateTime().toSecsSinceEpoch();
+        bindValues << this->last_seen;
     }
-    if (context.card.time_spent > 0) {
+    if (context.card.update_time_spent) {
         updates << "time_spent_seconds = time_spent_seconds + ?";
-        bindValues << context.card.time_spent;
+        bindValues << context.card.time_spent_increment;
     }
-    if (context.card.ease_factor > 0) {
+    if (context.card.update_ease_factor) {
         updates << "ease_factor = ?";
-        bindValues << context.card.ease_factor;
+        bindValues << this->easeFactor;
     }
-    if (context.card.interval > 0) {
+    if (context.card.update_interval) {
         updates << "interval = ?";
-        bindValues << context.card.interval;
+        bindValues << this->interval;
     }
-    if (context.card.repetitions > 0) {
+    if (context.card.update_repetitions) {
         updates << "repetitions = ?";
-        bindValues << context.card.repetitions;
+        bindValues << this->repetitions;
     }
 
     // No updates to perform
     if (updates.isEmpty()) {
-        qDebug() << "[DB - CardStats] No updates to perform.";
-        return false;
+        return true;
     }
 
     // Construct query
     QString queryString = QString("UPDATE CardStats SET %1 WHERE id = ? AND user_id = ? AND date = DATE('now')")
                           .arg(updates.join(", "));
     bindValues << this->card_id << this->user_id; // Add the card_id and user_id for the WHERE clause
-
-    // Debugging query and bind values
-    // qDebug() << "[DB - CardStats] Query String:" << queryString;
-    // qDebug() << "[DB - CardStats] Bound Values:" << bindValues;
 
     // Prepare query
     QSqlQuery query(Database::getInstance()->getDB());
@@ -195,7 +221,7 @@ bool CardStats::update(const StatsUpdateContext& context) {
 
     // Execute query
     if (!query.exec()) {
-        qDebug() << "[DB - CardStats] Failed to update stats:" << query.lastError().text();
+        Logger::error("Failed to update stats: " + query.lastError().text(), "CardStats");
         return false;
     }
 
@@ -204,13 +230,7 @@ bool CardStats::update(const StatsUpdateContext& context) {
 
 // Display stats for debugging
 void CardStats::display() const {
-    qDebug() << QStringLiteral("Card ID: %1, User ID: %2, Times Seen: %3, Time Spent: %4, Last Seen: %5, Ease Factor: %6, Interval: %7, Repetitions: %8")
-            .arg(card_id)
-            .arg(user_id)
-            .arg(times_seen)
-            .arg(time_spent_seconds)
-            .arg(last_seen)
-            .arg(easeFactor)
-            .arg(interval)
-            .arg(repetitions);
+    QString msg = QString("Times Seen: %1, Interval: %2, Ease: %3, Reps: %4")
+                  .arg(QString::number(times_seen), QString::number(interval), QString::number(easeFactor), QString::number(repetitions));
+    Logger::info(msg, "CardStats");
 }

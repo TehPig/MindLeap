@@ -15,39 +15,60 @@ StatsDialog::StatsDialog(QWidget *parent)
         return;
     }
 
-    UserStats userStats(user.getID()); // Initialize UserStats with user ID
-    Stats* stats = userStats.load(); // Load user stats (returns a Stats* pointer)
-
-    if (!stats) {
-        ui->statusbar->showMessage("Error: Could not load user stats.");
-        return;
-    }
-
-    // Try to cast Stats* to UserStats*
-    UserStats* userStatsPtr = dynamic_cast<UserStats*>(stats);
-    if (!userStatsPtr) {
-        ui->statusbar->showMessage("Error: Could not cast Stats to UserStats.");
-        delete stats; // Clean up the allocated memory
-        return;
-    }
-
-    // Now you can use UserStats functions
-    populateUserData(*userStatsPtr);
-
-    delete stats; // Clean up the allocated memory
+    // Directly get stats from the user object
+    UserStats stats = user.getTotalUserStats();
+    populateUserData(stats);
+    populateDeckData();
 }
 
 StatsDialog::~StatsDialog(){ delete ui; }
 
 void StatsDialog::populateUserData(const UserStats& stats) {
-    ui->CardsSeenCount->setText(QString::number(stats.getCardsSeen()));
-    ui->PressedAgainCount->setText(QString::number(stats.getPressedAgain()));
-    ui->PressedHardCount->setText(QString::number(stats.getPressedHard()));
-    ui->PressedGoodCount->setText(QString::number(stats.getPressedGood()));
-    ui->PressedEasyCount->setText(QString::number(stats.getPressedEasy()));
-    ui->TimeSpentCount->setText(QString::number(stats.getTimeSpentSeconds()));
+    ui->CardsSeenCount->setText(formatNumber(stats.getCardsSeen()));
+    ui->PressedAgainCount->setText(formatNumber(stats.getPressedAgain()));
+    ui->PressedHardCount->setText(formatNumber(stats.getPressedHard()));
+    ui->PressedGoodCount->setText(formatNumber(stats.getPressedGood()));
+    ui->PressedEasyCount->setText(formatNumber(stats.getPressedEasy()));
+    ui->TimeSpentCount->setText(formatDuration(stats.getTimeSpentSeconds()));
 }
 
 void StatsDialog::populateDeckData() {
-    // in progress
+    User user;
+    if (!user.fetchSelected()) return;
+
+    ui->label_2->setText("Deck Stats (Total)");
+
+    std::vector<Deck> decks = user.listDecks();
+    int totalCardsAdded = 0;
+    int totalCardsSeen = 0;
+    qint64 totalTimeSpent = 0;
+
+    for (const auto& deck : decks) {
+        DeckStats ds = deck.getTotalDeckStats();
+        totalCardsAdded += ds.getCardsAdded();
+        totalCardsSeen += ds.getCardsSeen();
+        totalTimeSpent += ds.getTimeSpent();
+    }
+
+    ui->CardsAddedCount->setText(formatNumber(totalCardsAdded));
+    ui->CardsSeenCount_2->setText(formatNumber(totalCardsSeen));
+    ui->TimeSpentCount_3->setText(formatDuration(totalTimeSpent));
+}
+
+QString StatsDialog::formatDuration(qint64 seconds) {
+    if (seconds < 60) return QString("%1s").arg(seconds);
+    
+    qint64 minutes = seconds / 60;
+    qint64 hours = minutes / 60;
+    qint64 remainingSeconds = seconds % 60;
+    qint64 remainingMinutes = minutes % 60;
+
+    if (hours > 0) {
+        return QString("%1h %2m %3s").arg(hours).arg(remainingMinutes).arg(remainingSeconds);
+    }
+    return QString("%1m %2s").arg(remainingMinutes).arg(remainingSeconds);
+}
+
+QString StatsDialog::formatNumber(int number) {
+    return QLocale(QLocale::English).toString(number);
 }

@@ -62,6 +62,7 @@ public:
     // Database Operations
     // Load stats from database
     Stats* load() override;
+    Stats* loadTotal() override;
     // Initialize stats to database
     bool initialize() const override;
 

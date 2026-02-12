@@ -9,18 +9,16 @@
 #include <QDebug>
 
 class Entity {
-protected:
-    static void logAction(const QString& action) {
-        qDebug() << "====================================================";
-        qDebug() << "[Entity] Action performed:" << action;
-    }
-
 public:
     virtual ~Entity() = default;
 
     virtual bool create() = 0;
     virtual bool _delete() const = 0;
     virtual void getStats() const = 0;
+
+    static void logAction(const QString& action) {
+        qDebug() << action.toStdString().c_str();
+    }
 };
 
 #endif

@@ -6,6 +6,7 @@
 #include "Frontend/selectuser.h"
 #include "Frontend/mainwindow.h"
 #include "Frontend/Dialogs/customdialog.h"
+#include "Backend/Utilities/DiscordManager.hpp"
 #include "forms/ui_selectuser.h"
 
 selectuser::selectuser(QWidget *parent)
@@ -13,6 +14,8 @@ selectuser::selectuser(QWidget *parent)
     , ui(new Ui::selectuser) {
     ui->setupUi(this);
     setWindowTitle("Select User | MindLeap");
+
+    DiscordManager::updatePresence("Selecting User", "", "user");
 
     // List existing users
     User user;

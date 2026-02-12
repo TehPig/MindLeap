@@ -2,6 +2,7 @@
 // Created by TehPig on 1/5/2025.
 //
 
+#include "Backend/Utilities/Logger.hpp"
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QDate>
@@ -19,8 +20,9 @@ UserStats::UserStats(
     const int& pressed_hard,
     const int& pressed_good,
     const int& pressed_easy,
-    const int& time_spent_seconds) : user_id(user_id), date(date), cards_seen(cards_seen), pressed_again(pressed_again), pressed_hard(pressed_hard), pressed_good(pressed_good), pressed_easy(pressed_easy), time_spent_seconds(time_spent_seconds) {}
-UserStats::UserStats(const QString& user_id) : user_id(user_id), cards_seen(0), pressed_again(0), pressed_hard(0), pressed_good(0), pressed_easy(0), time_spent_seconds(0) {}
+    const int& time_spent_seconds,
+    const int& times_used) : user_id(user_id), date(date), cards_seen(cards_seen), pressed_again(pressed_again), pressed_hard(pressed_hard), pressed_good(pressed_good), pressed_easy(pressed_easy), time_spent_seconds(time_spent_seconds), times_used(times_used) {}
+UserStats::UserStats(const QString& user_id) : user_id(user_id), cards_seen(0), pressed_again(0), pressed_hard(0), pressed_good(0), pressed_easy(0), time_spent_seconds(0), times_used(0) {}
 // Default constructor
 UserStats::UserStats()
     : user_id(""),
@@ -30,7 +32,8 @@ UserStats::UserStats()
       pressed_hard(0),
       pressed_good(0),
       pressed_easy(0),
-      time_spent_seconds(0) {}
+      time_spent_seconds(0),
+      times_used(0) {}
 
 // Getters
 int UserStats::getCardsSeen() const { return cards_seen; }
@@ -45,6 +48,8 @@ int UserStats::getPressedEasy() const { return pressed_easy; }
 
 int UserStats::getTimeSpentSeconds() const { return time_spent_seconds; }
 
+int UserStats::getTimesUsed() const { return times_used; }
+
 // Setters
 void UserStats::setUserID(const QString& user_id) { this->user_id = user_id; }
 
@@ -55,11 +60,13 @@ Stats* UserStats::load() {
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    query.prepare(QStringLiteral("SELECT * FROM UserStats WHERE id = ?"));
+    Logger::db("Loading user stats", QString("UserID: %1").arg(this->user_id));
+
+    query.prepare(QStringLiteral("SELECT * FROM UserStats WHERE id = ? ORDER BY date DESC LIMIT 1"));
     query.addBindValue(this->user_id);
 
     if (!query.exec()) {
-        qDebug() << "[DB - UserStats] Failed to load stats:" << query.lastError().text();
+        Logger::error("Failed to load user stats: " + query.lastError().text(), "UserStats");
         return {};
     }
     if (!query.next()) return {};
@@ -72,6 +79,7 @@ Stats* UserStats::load() {
     this->pressed_good = query.value("pressed_good").toInt();
     this->pressed_easy = query.value("pressed_easy").toInt();
     this->time_spent_seconds = query.value("time_spent_seconds").toInt();
+    this->times_used = query.value("times_used").toInt();
 
     return new UserStats(
         this->user_id,
@@ -81,7 +89,44 @@ Stats* UserStats::load() {
         this->pressed_hard,
         this->pressed_good,
         this->pressed_easy,
-        this->time_spent_seconds
+        this->time_spent_seconds,
+        this->times_used
+    );
+}
+
+Stats* UserStats::loadTotal() {
+    const Database* db = Database::getInstance();
+    QSqlQuery query(db->getDB());
+
+    query.prepare(QStringLiteral(R"(
+        SELECT SUM(cards_seen), SUM(pressed_again), SUM(pressed_hard), 
+               SUM(pressed_good), SUM(pressed_easy), SUM(time_spent_seconds),
+               SUM(times_used)
+        FROM UserStats WHERE id = ?
+    )"));
+    query.addBindValue(this->user_id);
+
+    if (!query.exec() || !query.next()) return {};
+
+    this->date = QDate::currentDate();
+    this->cards_seen = query.value(0).toInt();
+    this->pressed_again = query.value(1).toInt();
+    this->pressed_hard = query.value(2).toInt();
+    this->pressed_good = query.value(3).toInt();
+    this->pressed_easy = query.value(4).toInt();
+    this->time_spent_seconds = query.value(5).toInt();
+    this->times_used = query.value(6).toInt();
+
+    return new UserStats(
+        this->user_id,
+        this->date,
+        this->cards_seen,
+        this->pressed_again,
+        this->pressed_hard,
+        this->pressed_good,
+        this->pressed_easy,
+        this->time_spent_seconds,
+        this->times_used
     );
 }
 
@@ -95,8 +140,8 @@ bool UserStats::initialize() const {
     query.addBindValue(this->user_id);
 
     if (!query.exec()) {
-        qDebug() << "[DB - UserStats] Failed to check existing stats:" << query.lastError().text();
-        return true;
+        Logger::error("Failed to check existing stats: " + query.lastError().text(), "UserStats");
+        return false;
     }
     if (query.next() && query.value(0).toInt() > 0) return true; // Stats already exist
 
@@ -105,7 +150,7 @@ bool UserStats::initialize() const {
         query.addBindValue(this->user_id);
 
         if (!query.exec()) {
-            qDebug() << "[DB - UserStats] Failed to save stats for User:" << query.lastError().text();
+            Logger::error("Failed to save stats for User: " + query.lastError().text(), "UserStats");
             return false;
         }
 
@@ -115,7 +160,7 @@ bool UserStats::initialize() const {
 // Update stats based on user interactions
 bool UserStats::update(const StatsUpdateContext& context) {
     if (context.type != StatsUpdateType::User) {
-        qDebug() << "[DB - UserStats] Invalid context type.";
+        Logger::warn("Invalid context type for UserStats update", "UserStats");
         return false;
     }
 
@@ -123,45 +168,42 @@ bool UserStats::update(const StatsUpdateContext& context) {
     QList<QVariant> bindValues;
 
     // Collect updates and bind values for User
-    if (context.user.pressed_again > 0) {
-        updates << "pressed_again = pressed_again + ?";
-        bindValues << context.user.pressed_again;
+    if (context.user.update_button_counts) {
+        if (context.user.pressed_again > 0) {
+            updates << "pressed_again = pressed_again + ?";
+            bindValues << context.user.pressed_again;
+        }
+        if (context.user.pressed_hard > 0) {
+            updates << "pressed_hard = pressed_hard + ?";
+            bindValues << context.user.pressed_hard;
+        }
+        if (context.user.pressed_good > 0) {
+            updates << "pressed_good = pressed_good + ?";
+            bindValues << context.user.pressed_good;
+        }
+        if (context.user.pressed_easy > 0) {
+            updates << "pressed_easy = pressed_easy + ?";
+            bindValues << context.user.pressed_easy;
+        }
     }
-    if (context.user.pressed_hard > 0) {
-        updates << "pressed_hard = pressed_hard + ?";
-        bindValues << context.user.pressed_hard;
-    }
-    if (context.user.pressed_good > 0) {
-        updates << "pressed_good = pressed_good + ?";
-        bindValues << context.user.pressed_good;
-    }
-    if (context.user.pressed_easy > 0) {
-        updates << "pressed_easy = pressed_easy + ?";
-        bindValues << context.user.pressed_easy;
-    }
-    if (context.user.time_spent > 0) {
+    if (context.user.update_time_spent) {
         updates << "time_spent_seconds = time_spent_seconds + ?";
-        bindValues << context.user.time_spent;
+        bindValues << context.user.time_spent_increment;
     }
-    if (context.user.cards_seen > 0) {
+    if (context.user.update_cards_seen) {
         updates << "cards_seen = cards_seen + ?";
-        bindValues << context.user.cards_seen;
+        bindValues << context.user.cards_seen_increment;
     }
 
     // No updates to perform
     if (updates.isEmpty()) {
-        qDebug() << "[DB - UserStats] No updates to perform.";
-        return false;
+        return true;
     }
 
     // Construct query
     QString queryString = QString("UPDATE UserStats SET %1 WHERE id = ? AND date = DATE('now')")
                           .arg(updates.join(", "));
     bindValues << this->user_id; // Add the user_id for the WHERE clause
-
-    // // Debugging query and bind values
-    // qDebug() << "[DB - UserStats] Query String:" << queryString;
-    // qDebug() << "[DB - UserStats] Bound Values:" << bindValues;
 
     // Prepare query
     QSqlQuery query(Database::getInstance()->getDB());
@@ -174,7 +216,7 @@ bool UserStats::update(const StatsUpdateContext& context) {
 
     // Execute query
     if (!query.exec()) {
-        qDebug() << "[DB - UserStats] Failed to update stats:" << query.lastError().text();
+        Logger::error("Failed to update user stats: " + query.lastError().text(), "UserStats");
         return false;
     }
 
@@ -183,12 +225,7 @@ bool UserStats::update(const StatsUpdateContext& context) {
 
 // Display stats for debugging
 void UserStats::display() const {
-    qDebug() << QStringLiteral("User ID: %1, Cards Seen: %2, Pressed Again: %3, Pressed Hard: %4, Pressed Good: %5, Pressed Easy: %6, Time Spent: %7, Times Used: %8")
-            .arg(user_id)
-            .arg(cards_seen)
-            .arg(pressed_again)
-            .arg(pressed_hard)
-            .arg(pressed_good)
-            .arg(pressed_easy)
-            .arg(time_spent_seconds);
+    QString msg = QString("Cards Seen: %1, Time Spent: %2, Times Used: %3")
+                  .arg(QString::number(cards_seen), QString::number(time_spent_seconds), QString::number(times_used));
+    Logger::info(msg, "UserStats");
 }

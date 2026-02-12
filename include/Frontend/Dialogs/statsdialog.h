@@ -22,6 +22,9 @@ private:
 
     void populateUserData(const UserStats& stats);
     void populateDeckData();
+
+    QString formatDuration(qint64 seconds);
+    QString formatNumber(int number);
 };
 
 #endif // STATSDIALOG_H

@@ -1,0 +1,7 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>assets/images/app_icon.ico</file>
+    <file>assets/images/logo.png</file>
+    <file>assets/sounds/pop.wav</file>
+</qresource>
+</RCC>

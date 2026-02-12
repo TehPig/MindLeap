@@ -71,16 +71,27 @@ private:
     void setButtonVisibility(int row, bool visible);
 
     // Button Listeners for Study seesion
-    void onButtonOptionSelected(QPushButton* button, Card card);
+    void onButtonOptionSelected(QPushButton* button);
 
     // Helper Methods
     void showDeckInfo(const Deck& deck);
     void insertTableRow(const Deck& deck, const int& row, const bool& insert_default_values);
     bool updateTableRow(const QString& id);
 
-    void proceedToNextCard(Deck& deck);
+    void proceedToNextCard();
 
-    QString currentDeck;
+    // Persistent Dialogs
+    class GuideDialog* guideDialog = nullptr;
+    class AboutDialog* aboutDialog = nullptr;
+
+    QString currentDeckID;
+    Deck currentDeckObj;
+    Card currentCard;
+    class QSoundEffect *popSound = nullptr;
+
+public:
+    Card getCurrentCard() const { return currentCard; }
+    void setCurrentCard(const Card &card) { currentCard = card; }
 };
 
 #endif // MAINWINDOW_H

@@ -49,7 +49,9 @@ void Database::initialize() {
         CREATE_CARD_STATS_TABLE,
         CARD_STATS_CARD_INDEX,
         CARD_STATS_USER_INDEX,
-        CARD_STATS_DATE_INDEX
+        CARD_STATS_DATE_INDEX,
+        CARD_STATS_CARD_USER_INDEX,
+        CARD_STATS_LAST_SEEN_INDEX
     };
 
     for (const auto& query : queries) {

@@ -20,6 +20,8 @@ User::User() : username(""), id("") {}
 // Getters
 // Get username
 QString User::getUsername() const {
+    if (!this->username.isEmpty()) return this->username;
+
     // If ID is set, retrieve the username from the database
     if (!this->id.isEmpty()) {
         const Database *db = Database::getInstance();
@@ -33,11 +35,11 @@ QString User::getUsername() const {
             return {};
         }
 
-        return query.value(0).toString();
+        const_cast<User*>(this)->username = query.value(0).toString();
+        return this->username;
     }
 
-    if (this->username.isEmpty()) return {};
-    return this->username;
+    return {};
 }
 
 // Get user ID
@@ -245,6 +247,9 @@ bool User::updateLaunchStats() const {
         return false;
     }
 
+    UserStats user_stats(this->id);
+    user_stats.initialize(); // Ensure today's row exists
+
     const Database *db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
@@ -326,7 +331,22 @@ std::vector<User> User::listUsers() {
     return users;
 }
 
-// Get User stats
+// Get User stats (Base class override)
 void User::getStats() const {
     qDebug() << "User Stats";
+}
+
+// Get User stats object (For UI)
+UserStats User::getUserStats() const {
+    UserStats userStats(this->id);
+    Stats* ptr = userStats.load(); // load() returns a new pointer but also populates 'userStats'
+    if (ptr) delete ptr;           // Prevent memory leak
+    return userStats;
+}
+
+UserStats User::getTotalUserStats() const {
+    UserStats userStats(this->id);
+    Stats* ptr = userStats.loadTotal();
+    if (ptr) delete ptr;
+    return userStats;
 }

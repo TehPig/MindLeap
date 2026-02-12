@@ -56,6 +56,8 @@ public:
 
     // Stats
     void getStats() const override;
+    UserStats getUserStats() const;
+    UserStats getTotalUserStats() const;
 };
 
 #endif

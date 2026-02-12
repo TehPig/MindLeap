@@ -12,6 +12,7 @@ public:
     virtual ~Stats() = default;
 
     virtual Stats* load() = 0;
+    virtual Stats* loadTotal() = 0;
     virtual bool initialize() const = 0;
 
     virtual bool update(const StatsUpdateContext& context) = 0;
