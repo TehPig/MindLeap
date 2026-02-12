@@ -25,6 +25,11 @@ jobs:
         modules: 'qtmultimedia'
         cache: 'true'
 
+    - name: Setup MinGW Path
+      run: |
+        echo "${{ env.Qt6_DIR }}/../../../../Tools/mingw1310_64/bin" >> $GITHUB_PATH
+      shell: bash
+
     - name: Configure CMake
       run: cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 
