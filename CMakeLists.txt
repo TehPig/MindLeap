@@ -28,20 +28,23 @@ file(GLOB_RECURSE HEADERS "${INCLUDE_DIR}/*.h" "${INCLUDE_DIR}/*.hpp")
 file(GLOB_RECURSE UI "${FORMS_DIR}/*.ui")
 set(RESOURCES "resources.qrc")
 
+# Remove ALL files in Backend/RPC from default SOURCES to prevent compilation on Linux
+list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*")
+
 # Discord RPC Configuration
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 if(USE_DISCORD AND WIN32)
-    # Remove platform-specific RPC files from generic sources to handle them conditionally
-    list(FILTER SOURCES EXCLUDE REGEX "src/Backend/RPC/.*_win\\.cpp$")
-    
     add_definitions(-DDISCORD_WINDOWS)
+    # Add ONLY the files we need for Windows
     list(APPEND SOURCES 
+        "${SRC_DIR}/Backend/RPC/discord_rpc.cpp"
+        "${SRC_DIR}/Backend/RPC/rpc_connection.cpp"
+        "${SRC_DIR}/Backend/RPC/serialization.cpp"
         "${SRC_DIR}/Backend/RPC/connection_win.cpp"
         "${SRC_DIR}/Backend/RPC/discord_register_win.cpp"
     )
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
 else()
-    # Disable RPC on other platforms (Docker/Linux) because implementation files are missing
     set(USE_DISCORD OFF)
 endif()
 

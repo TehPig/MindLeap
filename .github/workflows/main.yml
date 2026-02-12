@@ -27,17 +27,11 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Searching for MinGW on D:..."
-        $MinGWBin = Get-ChildItem -Path "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "mingw" } | 
-                    Select-Object -First 1 -ExpandProperty DirectoryName
-        if (-not $MinGWBin) { 
-            Write-Host "MinGW not found on D:, searching C:..."
-            $MinGWBin = Get-ChildItem -Path "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "mingw" } | 
-                        Select-Object -First 1 -ExpandProperty DirectoryName
-        }
-        if (-not $MinGWBin) { throw "Could not find MinGW anywhere on the runner." }
+        # Qt6_DIR is D:\a\anki-project\Qt\6.8.1\mingw_64
+        $QtVersionRoot = Split-Path $env:Qt6_DIR -Parent # D:\a\anki-project\Qt\6.8.1
+        $QtRoot = Split-Path $QtVersionRoot -Parent        # D:\a\anki-project\Qt
+        $MinGWBin = Get-ChildItem -Path "$QtRoot\Tools" -Filter "g++.exe" -Recurse | Select-Object -First 1 -ExpandProperty DirectoryName
+        if (-not $MinGWBin) { throw "Could not find MinGW in $QtRoot\Tools" }
         Write-Host "Found MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
