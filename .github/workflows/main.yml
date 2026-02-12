@@ -27,31 +27,12 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Aggressively searching for 64-bit MinGW..."
-        # Search D:\a\anki-project\Qt then C:\Qt then D:\ then C:\
-        $SearchPaths = @("D:\a\anki-project\Qt", "C:\Qt", "D:\", "C:\")
-        $MinGWBin = $null
-        
-        foreach ($Path in $SearchPaths) {
-            if (Test-Path $Path) {
-                Write-Host "Checking $Path..."
-                $MinGWBin = Get-ChildItem -Path $Path -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                            Where-Object { ($_.FullName -match "64") -and ($_.FullName -notmatch "32") -and ($_.FullName -notmatch "msys64") -and ($_.FullName -notmatch "C:\\mingw64") } | 
-                            Select-Object -First 1 -ExpandProperty DirectoryName
-                if ($MinGWBin) { break }
-            }
+        Write-Host "Forcing UCRT64 toolchain for Qt 6 compatibility..."
+        # MSYS2 UCRT64 is pre-installed on the runner and matches Qt 6
+        $MinGWBin = "C:\msys64\ucrt64\bin"
+        if (-not (Test-Path $MinGWBin)) {
+            throw "UCRT64 toolchain not found at $MinGWBin"
         }
-        
-        if (-not $MinGWBin) {
-            Write-Host "Strict search failed, searching broadly..."
-            $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "mingw" -and $_.FullName -notmatch "32" } | 
-                        Select-Object -First 1 -ExpandProperty DirectoryName
-        }
-        
-        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
-        
-        Write-Host "Found compatible MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
@@ -60,10 +41,11 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Definitively patching RapidJSON..."
+            Write-Host "Regex patching RapidJSON for modern GCC compatibility..."
             $content = Get-Content $path -Raw
-            $newContent = $content -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
-            $newContent | Set-Content $path -Encoding UTF8
+            # Remove the invalid operator= definition using regex to handle whitespace
+            $newContent = $content -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ [^}]* \}', ''
+            $newContent | Set-Content $path
         }
       shell: pwsh
 
