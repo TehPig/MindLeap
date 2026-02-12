@@ -27,14 +27,24 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        echo "${{ env.Qt6_DIR }}/../../../../Tools/mingw1310_64/bin" >> $GITHUB_PATH
-      shell: bash
+        $QtRoot = Split-Path (Split-Path $env:Qt6_DIR) -Parent
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse | Select-Object -First 1 -ExpandProperty DirectoryName
+        if (-not $MinGWBin) { throw "Could not find MinGW in $QtRoot" }
+        echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
+        echo "$MinGWBin" >> $env:GITHUB_PATH
+      shell: pwsh
 
     - name: Configure CMake
-      run: cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+      run: |
+        cmake -B build -G "MinGW Makefiles" `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
+          -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
+          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe"
+      shell: pwsh
 
     - name: Build
-      run: cmake --build build --config Release
+      run: cmake --build build --config Release -j 4
 
     - name: Run Tests
       working-directory: build
