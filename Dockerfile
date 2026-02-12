@@ -10,7 +10,7 @@ RUN pip3 install aqtinstall
 
 # Install Qt 6.8.1 + required modules
 RUN aqt install-qt linux desktop 6.8.1 linux_gcc_64 --outputdir /opt/Qt \
-    --modules qtbase,qttools,qtmultimedia,qtsql
+    --modules qtmultimedia qttools
 
 # Set environment variables
 ENV PATH="/opt/Qt/6.8.1/gcc_64/bin:$PATH"

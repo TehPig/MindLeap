@@ -313,10 +313,14 @@ std::vector<int> Deck::getCardInformation() const {
     const QString currentUserID = userQuery.value(0).toString();
 
     // Fetch limits
-    query.prepare("SELECT daily_new_card_limit FROM DeckSettings WHERE id = ?");
+    query.prepare("SELECT daily_new_card_limit, max_review_cards FROM DeckSettings WHERE id = ?");
     query.addBindValue(this->id);
     int newLimit = 20;
-    if (query.exec() && query.next()) newLimit = query.value(0).toInt();
+    int reviewLimit = 100;
+    if (query.exec() && query.next()) {
+        newLimit = query.value(0).toInt();
+        reviewLimit = query.value(1).toInt();
+    }
 
     // Count new cards studied today
     query.prepare(QStringLiteral(R"(
@@ -330,7 +334,21 @@ std::vector<int> Deck::getCardInformation() const {
     int newStudiedToday = 0;
     if (query.exec() && query.next()) newStudiedToday = query.value(0).toInt();
     
-    int remainingNew = std::max(0, newLimit - newStudiedToday);
+    int remainingNewLimit = std::max(0, newLimit - newStudiedToday);
+
+    // Count reviews studied today
+    query.prepare(QStringLiteral(R"(
+        SELECT COUNT(DISTINCT id) FROM CardStats
+        WHERE user_id = ? AND date = DATE('now')
+          AND id IN (SELECT card_id FROM DecksCards WHERE deck_id = ?)
+          AND id IN (SELECT id FROM CardStats WHERE date < DATE('now'))
+    )"));
+    query.addBindValue(currentUserID);
+    query.addBindValue(this->id);
+    int reviewsStudiedToday = 0;
+    if (query.exec() && query.next()) reviewsStudiedToday = query.value(0).toInt();
+
+    int remainingReviewLimit = std::max(0, reviewLimit - reviewsStudiedToday);
 
     // Count available New cards (up to remaining limit)
     query.prepare(R"(
@@ -342,9 +360,9 @@ std::vector<int> Deck::getCardInformation() const {
     query.addBindValue(this->id);
     query.addBindValue(currentUserID);
     int availableNew = 0;
-    if (query.exec() && query.next()) availableNew = std::min(remainingNew, query.value(0).toInt());
+    if (query.exec() && query.next()) availableNew = std::min(remainingNewLimit, query.value(0).toInt());
 
-    // Count available Learning cards
+    // Count available Learning cards (No limit)
     query.prepare(R"(
         SELECT COUNT(*) FROM Cards c
         INNER JOIN DecksCards dc ON c.id = dc.card_id
@@ -354,7 +372,7 @@ std::vector<int> Deck::getCardInformation() const {
     int availableLearn = 0;
     if (query.exec() && query.next()) availableLearn = query.value(0).toInt();
 
-    // Count due Review cards
+    // Count due Review cards (up to remaining limit)
     query.prepare(R"(
         SELECT COUNT(*) FROM Cards c
         INNER JOIN DecksCards dc ON c.id = dc.card_id
@@ -367,7 +385,7 @@ std::vector<int> Deck::getCardInformation() const {
     query.addBindValue(STUDY_INTERVAL_MULTIPLIER);
     query.addBindValue(QDateTime::currentSecsSinceEpoch());
     int availableReview = 0;
-    if (query.exec() && query.next()) availableReview = query.value(0).toInt();
+    if (query.exec() && query.next()) availableReview = std::min(remainingReviewLimit, query.value(0).toInt());
 
     return { availableNew, availableLearn, availableReview };
 }
@@ -419,9 +437,14 @@ bool Deck::study() {
         return false;
     }
 
-    const int cardsSeen = deckStats.getCardsSeen();
-    if (cardsSeen >= maxReviewCards) {
-        Logger::info("Review card limit reached", "Deck");
+    // Get current progress
+    const std::vector<int> currentInfo = getCardInformation();
+    const int availableNew = currentInfo[0];
+    const int availableLearn = currentInfo[1];
+    const int availableReview = currentInfo[2];
+
+    if (availableNew == 0 && availableLearn == 0 && availableReview == 0) {
+        Logger::info("No cards available for study (limits reached or nothing due)", "Deck");
         return false;
     }
 
@@ -693,9 +716,9 @@ Card Deck::getNextCard() {
     const Database* db = Database::getInstance();
     QSqlQuery query(db->getDB());
 
-    // Fetch dailyNewCardLimit from DeckSettings
+    // Fetch dailyNewCardLimit and maxReviewCards from DeckSettings
     query.prepare(QStringLiteral(R"(
-        SELECT daily_new_card_limit
+        SELECT daily_new_card_limit, max_review_cards
         FROM DeckSettings
         WHERE id = ?
     )"));
@@ -707,6 +730,7 @@ Card Deck::getNextCard() {
     }
 
     const int dailyNewCardLimit = query.value(0).toInt();
+    const int maxReviewCards = query.value(1).toInt();
 
     // Load DeckStats
     DeckStats deckStats;
@@ -720,8 +744,11 @@ Card Deck::getNextCard() {
         }
     }
 
-    // Fetch dailyNewCardsStudiedToday from CardStats
-    query.prepare(QStringLiteral(R"(
+    // Fetch progress from CardStats
+    QSqlQuery progressQuery(db->getDB());
+    
+    // New cards studied today
+    progressQuery.prepare(QStringLiteral(R"(
         SELECT COUNT(DISTINCT id)
         FROM CardStats
         WHERE user_id = (SELECT id FROM SavedUser LIMIT 1)
@@ -729,17 +756,48 @@ Card Deck::getNextCard() {
           AND id IN (SELECT card_id FROM DecksCards WHERE deck_id = ?)
           AND id NOT IN (SELECT id FROM CardStats WHERE date < DATE('now'))
     )"));
-    query.addBindValue(this->id);
-
+    progressQuery.addBindValue(this->id);
     int dailyNewCardsStudiedToday = 0;
-    if (query.exec() && query.next()) {
-        dailyNewCardsStudiedToday = query.value(0).toInt();
+    if (progressQuery.exec() && progressQuery.next()) {
+        dailyNewCardsStudiedToday = progressQuery.value(0).toInt();
+    }
+
+    // Review cards studied today
+    progressQuery.prepare(QStringLiteral(R"(
+        SELECT COUNT(DISTINCT id)
+        FROM CardStats
+        WHERE user_id = (SELECT id FROM SavedUser LIMIT 1)
+          AND date = DATE('now')
+          AND id IN (SELECT card_id FROM DecksCards WHERE deck_id = ?)
+          AND id IN (SELECT id FROM CardStats WHERE date < DATE('now'))
+    )"));
+    progressQuery.addBindValue(this->id);
+    int dailyReviewsStudiedToday = 0;
+    if (progressQuery.exec() && progressQuery.next()) {
+        dailyReviewsStudiedToday = progressQuery.value(0).toInt();
     }
 
     Card nextCard = this->studyQueue.front();
+    
+    // Check limits based on card type
+    if (nextCard.getType() == CardType::New) {
+        if (dailyNewCardsStudiedToday >= dailyNewCardLimit) {
+            Logger::info("Daily new card limit reached during session", "Deck");
+            // Optionally clear the queue of other new cards? 
+            // For now just stop.
+            return {};
+        }
+    } else if (nextCard.getType() == CardType::Review) {
+        if (dailyReviewsStudiedToday >= maxReviewCards) {
+            Logger::info("Daily review card limit reached during session", "Deck");
+            return {};
+        }
+    }
+
     this->studyQueue.pop();
 
     // Check if the next card is "Brand New" (has NO stats records at all)
+    // This is a secondary check to ensure consistency if getType() is not 'New' but it has no stats.
     query.prepare(QStringLiteral("SELECT COUNT(*) FROM CardStats WHERE id = ?"));
     query.addBindValue(nextCard.getID());
     
@@ -748,11 +806,9 @@ Card Deck::getNextCard() {
         isBrandNew = false;
     }
 
-    if (isBrandNew) {
-        if (dailyNewCardsStudiedToday >= dailyNewCardLimit) {
-            Logger::info("Daily new card limit reached", "Deck");
-            return {};
-        }
+    if (isBrandNew && nextCard.getType() != CardType::New) {
+         // Should not happen often but handle just in case
+         if (dailyNewCardsStudiedToday >= dailyNewCardLimit) return {};
     }
 
     // Set the timer in the database using CardStats class

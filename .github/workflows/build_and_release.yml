@@ -22,10 +22,11 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.7.0'
+        version: '6.8.1'
         host: 'windows'
         target: 'desktop'
         arch: 'win64_mingw'
+        modules: 'qtmultimedia'
         dir: '${{ github.workspace }}/qt/'
         install-deps: 'true'
         cache: 'true'
@@ -43,14 +44,7 @@ jobs:
     - name: Deploy Qt Dependencies
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        $exePath = "build/src/anki-project.exe" 
-        # Note: Adjust executable name if different in CMakeLists.txt
-        # If the exe name is unknown, find it:
-        # $exePath = (Get-ChildItem -Path build/src -Filter *.exe).FullName
-        
-        # We need to find the actual executable name. Assuming 'anki-project.exe' based on folder name, 
-        # but usually it matches project() in CMake. 
-        # Let's try to locate it dynamically for safety.
+        # Find the actual executable name dynamically.
         $exe = Get-ChildItem -Path build -Recurse -Filter "*.exe" | Where-Object { $_.Name -notlike "*test*" } | Select-Object -First 1
         Write-Host "Found executable: $($exe.FullName)"
         
@@ -62,10 +56,8 @@ jobs:
     - name: Create Single EXE (SFX)
       if: startsWith(github.ref, 'refs/tags/')
       run: |
-        # Create a self-extracting archive
-        # -sfx: create SFX
-        # -t7z: 7z format
-        7z a -sfx7z.sfx MindLeap_Single.exe ./dist/*
+        # Create a self-extracting archive using 7z
+        7z a -sfx MindLeap_Single.exe ./dist/*
 
     - name: Zip Release
       if: startsWith(github.ref, 'refs/tags/')

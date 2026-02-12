@@ -417,9 +417,18 @@ void MainWindow::showDeckInfo(const Deck& deck) {
         return;
     }
 
-    ui->UnseenCount->setText(QString::number(card_count[0]));
-    ui->PendingCount->setText(QString::number(card_count[1]));
-    ui->ReviewCount->setText(QString::number(card_count[2]));
+    if(!card_count.empty()){
+        ui->UnseenCount->setText(QString::number(card_count[0]));
+        ui->PendingCount->setText(QString::number(card_count[1]));
+        ui->ReviewCount->setText(QString::number(card_count[2]));
+
+        // Hide study button if no cards are available within limits
+        if (card_count[0] == 0 && card_count[1] == 0 && card_count[2] == 0) {
+            ui->StudyButton->setVisible(false);
+        } else {
+            ui->StudyButton->setVisible(true);
+        }
+    }
 
     ui->CardCount->setText("Total Cards: " + QString::number(deck.getCardCount()));
 
@@ -474,24 +483,24 @@ void MainWindow::insertTableRow(const Deck& deck, const int& row, const bool& in
         }
     }
 
-    // Set New, Learn, Review, and Total values
+    // Set New, Review, and Pending values
     auto *newItem = new QTableWidgetItem(!insert_default_values ? QString::number(card_count[0]) : "0");
     newItem->setFont(font);
     newItem->setTextAlignment(Qt::AlignCenter);
     newItem->setFlags(newItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
     ui->CardList->setItem(row, 1, newItem);
 
-    auto *learnItem = new QTableWidgetItem(!insert_default_values ? QString::number(card_count[1]) : "0");
-    learnItem->setFont(font);
-    learnItem->setTextAlignment(Qt::AlignCenter);
-    learnItem->setFlags(learnItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
-    ui->CardList->setItem(row, 2, learnItem);
-
     auto *reviewItem = new QTableWidgetItem(!insert_default_values ? QString::number(card_count[2]) : "0");
     reviewItem->setFont(font);
     reviewItem->setTextAlignment(Qt::AlignCenter);
     reviewItem->setFlags(reviewItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
-    ui->CardList->setItem(row, 3, reviewItem);
+    ui->CardList->setItem(row, 2, reviewItem);
+
+    auto *learnItem = new QTableWidgetItem(!insert_default_values ? QString::number(card_count[1]) : "0");
+    learnItem->setFont(font);
+    learnItem->setTextAlignment(Qt::AlignCenter);
+    learnItem->setFlags(learnItem->flags() & ~Qt::ItemIsEditable); // Make non-editable
+    ui->CardList->setItem(row, 3, learnItem);
 
     auto *totalItem = new QTableWidgetItem(!insert_default_values ? QString::number(deck.getCardCount()) : "0");
     totalItem->setFont(font);
@@ -721,8 +730,8 @@ void MainWindow::proceedToNextCard(){
     const std::vector counters = currentDeckObj.getCardInformation();
     if (!counters.empty()) {
         ui->UnseenCardCount->setText(QString::number(counters[0]));
-        ui->ReviewCardCount->setText(QString::number(counters[1]));
-        ui->PendingCardCount->setText(QString::number(counters[2]));
+        ui->PendingCardCount->setText(QString::number(counters[1]));
+        ui->ReviewCardCount->setText(QString::number(counters[2]));
     }
 }
 
