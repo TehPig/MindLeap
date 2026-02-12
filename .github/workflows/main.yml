@@ -23,37 +23,38 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
-        tools: 'tools_mingw'
+        # Explicitly install the matching MinGW toolchain
+        tools: 'qt.tools.win64_mingw1310'
         cache: 'true'
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Blacklisting broken system compilers..."
-        # Purge existing MinGW/MSYS paths from the environment to avoid GCC 14/15 mismatch
-        $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notmatch "C:\\mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }) -join ';'
+        Write-Host "Purging PATH of system compilers..."
+        # Remove any existing MinGW/MSYS from PATH to prevent GCC 15 conflict
+        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }
+        $env:PATH = $Paths -join ';'
         
-        Write-Host "Locating the matching Qt MinGW compiler..."
-        # jurplel/install-qt-action installs tools in a specific structure
-        # We search D: then C: but we REQUIRE the path to contain "Qt" and "Tools"
-        $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "Qt" -and $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
+        Write-Host "Searching for the matching Qt MinGW (GCC 13)..."
+        $QtPath = "${{ env.Qt6_DIR }}"
+        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
+        
+        # Look specifically in the Tools folder where the action installed it
+        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                    Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
-        if (-not $MinGWBin) {
-            Write-Host "Warning: Standard Qt Tools path not found, searching broadly..."
-            $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "64" -and $_.FullName -notmatch "C:\\mingw" } | 
+        if (-not $MinGWBin) { 
+            Write-Host "MinGW not found in Qt root, searching broadly..."
+            $MinGWBin = Get-ChildItem -Path "C:\", "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                        Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
                         Select-Object -First 1 -ExpandProperty DirectoryName
         }
         
-        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
+        if (-not $MinGWBin) { throw "Compatible Qt MinGW compiler not found." }
         
         Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
-        $gccVer = & "$MinGWBin\g++.exe" --version | Select-Object -First 1
-        Write-Host "Compiler version: $gccVer"
-        
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
-        # PREPEND to PATH to ensure it has absolute priority
+        # PREPEND to PATH to ensure absolute priority
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
 
@@ -61,17 +62,18 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Applying ultra-strict regex patch to RapidJSON..."
-            $c = Get-Content $path -Raw
-            # Remove the invalid operator= definition regardless of whitespace
-            $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ [^}]* \}', ''
-            $c | Set-Content $path
+            Write-Host "Regex patching RapidJSON for GCC compatibility..."
+            $content = Get-Content $path -Raw
+            # Matches operator= regardless of whitespace or newlines
+            $regex = 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{[^}]*\}'
+            $newContent = $content -replace $regex, ''
+            $newContent | Set-Content $path
         }
       shell: pwsh
 
     - name: Configure CMake
       run: |
-        # Use absolute path to system cmake to avoid any broken RTools version
+        # Use absolute path to system cmake to avoid any broken tool versions
         & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
