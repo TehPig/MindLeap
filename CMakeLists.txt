@@ -36,7 +36,6 @@ file(GLOB_RECURSE RPC_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp" "${SRC_DIR}/Backend
 
 if(USE_DISCORD AND WIN32)
     add_definitions(-DDISCORD_WINDOWS)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
     # They are already in SOURCES from GLOB_RECURSE
 else()
     # On Linux/Docker, completely remove RPC files from sources list
@@ -66,7 +65,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-if(USE_DISCORD)
+if(USE_DISCORD AND WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE USE_DISCORD_RPC)
 endif()
 
@@ -97,5 +96,44 @@ if(WIN32 AND MINGW)
     target_link_options(${PROJECT_NAME} PRIVATE "-static-libgcc" "-static-libstdc++")
 endif()
 
-# ... rest of your CMakeLists.txt (tests) remains unchanged
+# Catch2 tests
+include(FetchContent)
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG v3.8.0
+)
+FetchContent_MakeAvailable(Catch2)
+
+# Test executable
+file(GLOB_RECURSE BACKEND_SOURCES "${SRC_DIR}/*.cpp")
+file(GLOB_RECURSE BACKEND_HEADERS "${INCLUDE_DIR}/*.hpp")
+
+# Exclude Frontend and main from backend tests
+list(FILTER BACKEND_SOURCES EXCLUDE REGEX ".*/Frontend/.*\\.cpp$")
+list(FILTER BACKEND_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
+list(FILTER BACKEND_SOURCES EXCLUDE REGEX ".*/Backend/RPC/.*\\.cpp$")
+list(FILTER BACKEND_HEADERS EXCLUDE REGEX ".*/Frontend/.*\\.hpp$")
+
+file(GLOB_RECURSE TEST_SOURCES "${TESTS_DIR}/*.cpp")
+
+add_executable(${PROJECT_NAME}_tests
+    ${BACKEND_SOURCES} ${BACKEND_HEADERS} ${TEST_SOURCES}
+)
+
+target_include_directories(${PROJECT_NAME}_tests PRIVATE ${INCLUDE_DIR})
+set_target_properties(${PROJECT_NAME}_tests PROPERTIES
+    AUTOUIC OFF
+    AUTOMOC OFF
+    AUTORCC OFF
+)
+target_link_libraries(${PROJECT_NAME}_tests PRIVATE
+    Catch2::Catch2WithMain
+    Qt6::Core
+    Qt6::Sql
+)
+
+include(CTest)
+include(Catch)
+catch_discover_tests(${PROJECT_NAME}_tests)
 
