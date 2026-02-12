@@ -28,18 +28,33 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        $QtPath = "${{ env.Qt6_DIR }}"
-        $QtRoot = Split-Path (Split-Path (Split-Path $QtPath))
-        Write-Host "Searching for MinGW in $QtRoot..."
+        Write-Host "Purging PATH of system compilers..."
+        # Force removal of common conflicting paths
+        $Paths = $env:PATH -split ';' | Where-Object { 
+            $_ -notmatch "mingw" -and 
+            $_ -notmatch "msys" -and 
+            $_ -notmatch "rtools" 
+        }
+        $env:PATH = $Paths -join ';'
         
-        $MinGWBin = Get-ChildItem -Path $QtRoot -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+        Write-Host "Exhaustively searching for Qt-provided MinGW..."
+        # Try D: then C: - specifically looking for Tools/mingw
+        $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
                     Where-Object { $_.FullName -match "Tools" -and $_.FullName -match "64" } | 
                     Select-Object -First 1 -ExpandProperty DirectoryName
         
-        if (-not $MinGWBin) { throw "64-bit MinGW compiler not found in $QtRoot" }
+        if (-not $MinGWBin) {
+            Write-Host "Strict search failed, searching for any matching compiler..."
+            $MinGWBin = Get-ChildItem -Path "D:\", "C:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                        Where-Object { $_.FullName -match "64" -and $_.FullName -notmatch "C:\\mingw" } | 
+                        Select-Object -First 1 -ExpandProperty DirectoryName
+        }
         
-        Write-Host "Found MinGW at: $MinGWBin"
+        if (-not $MinGWBin) { throw "Compatible 64-bit MinGW compiler not found." }
+        
+        Write-Host "Found compatible MinGW at: $MinGWBin"
         echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
+        # Prepend to PATH to ensure highest priority
         echo "$MinGWBin" >> $env:GITHUB_PATH
       shell: pwsh
 
@@ -47,7 +62,7 @@ jobs:
       run: |
         $path = "include/Backend/RPC/rapidjson/document.h"
         if (Test-Path $path) {
-            Write-Host "Patching RapidJSON..."
+            Write-Host "Patching RapidJSON for modern C++ compatibility..."
             $c = Get-Content $path -Raw
             $c = $c -replace 'GenericStringRef& operator=\(const GenericStringRef& rhs\) \{ s = rhs\.s; length = rhs\.length; \}', ''
             $c | Set-Content $path
@@ -56,7 +71,7 @@ jobs:
 
     - name: Configure CMake
       run: |
-        # Use absolute path to system cmake to avoid any broken RTools/msys version
+        # Use absolute path to system cmake to avoid any broken RTools version
         & "C:\Program Files\CMake\bin\cmake.exe" -B build -G "MinGW Makefiles" `
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `

@@ -22,7 +22,7 @@ set(SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(TESTS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tests")
 set(ASSETS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 
-# Select sources EXPLICITLY to avoid RPC folder on Linux by default
+# Main executable - Select sources explicitly to avoid RPC folder on Linux
 file(GLOB_RECURSE SOURCES 
     "${SRC_DIR}/Backend/Classes/*.cpp"
     "${SRC_DIR}/Backend/Database/*.cpp"
@@ -38,10 +38,10 @@ set(RESOURCES "resources.qrc")
 option(USE_DISCORD "Enable Discord Rich Presence" ON)
 
 if(WIN32 AND USE_DISCORD)
-    # Add RPC files ONLY on Windows
+    add_definitions(-DDISCORD_WINDOWS)
+    # Add implementation files back ONLY on Windows
     file(GLOB_RECURSE RPC_SOURCES "${SRC_DIR}/Backend/RPC/*.cpp" "${SRC_DIR}/Backend/RPC/*.c")
     list(APPEND SOURCES ${RPC_SOURCES})
-    add_definitions(-DDISCORD_WINDOWS)
 else()
     set(USE_DISCORD OFF)
 endif()
