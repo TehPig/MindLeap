@@ -23,9 +23,19 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
-        # Request the specific modern MinGW version that comes with Qt 6.8
-        tools: 'tools_mingw1310_64'
+        # 'tools_mingw' is the correct alias that aqt uses to find the companion compiler
+        tools: 'tools_mingw'
         cache: 'true'
+
+    - name: Debug - List Qt Tools
+      run: |
+        Write-Host "Listing contents of Qt Tools directory..."
+        if (Test-Path "D:\a\anki-project\Qt\Tools") {
+            Get-ChildItem -Path "D:\a\anki-project\Qt\Tools" -Recurse -Depth 2 | Select-Object FullName | Write-Host
+        } else {
+            Write-Host "Qt Tools directory NOT found at D:\a\anki-project\Qt\Tools"
+        }
+      shell: pwsh
 
     - name: Setup MinGW Path
       run: |
@@ -40,7 +50,6 @@ jobs:
         $SearchRoots += Join-Path $env:GITHUB_WORKSPACE "Qt"
         $SearchRoots += "C:\Qt"
         $SearchRoots += "C:\mingw64"
-        $SearchRoots += "C:\Strawberry\c"
         $SearchRoots += "D:\a"
         
         $compilers = @()
@@ -59,9 +68,14 @@ jobs:
                 $versionText = & "$path\g++.exe" -dumpversion
                 $majorVersion = [int]($versionText.Split('.')[0])
                 Write-Host "Found GCC $versionText at $path"
+                
+                # Prioritize the 13.1.0 version specifically as it's the target for Qt 6.8.1
+                $weight = $majorVersion
+                if ($versionText -eq "13.1.0") { $weight += 100 } 
+
                 if ($majorVersion -ge 11) {
-                    if ($null -eq $bestCompiler -or $majorVersion -gt $bestCompiler.Version) {
-                        $bestCompiler = @{ Path = $path; Version = $majorVersion; FullVersion = $versionText }
+                    if ($null -eq $bestCompiler -or $weight -gt $bestCompiler.Weight) {
+                        $bestCompiler = @{ Path = $path; Version = $majorVersion; FullVersion = $versionText; Weight = $weight }
                     }
                 }
             } catch {
@@ -70,20 +84,7 @@ jobs:
         }
 
         if ($null -eq $bestCompiler) {
-            Write-Host "No GCC 11+ found in Qt or custom roots. Checking system PATH..."
-            $sysGpp = Get-Command g++.exe -ErrorAction SilentlyContinue
-            if ($sysGpp) {
-                $path = Split-Path $sysGpp.Source
-                $versionText = & "$path\g++.exe" -dumpversion
-                Write-Host "Found system GCC $versionText at $path"
-                if ([int]($versionText.Split('.')[0]) -ge 11) {
-                    $bestCompiler = @{ Path = $path; Version = [int]($versionText.Split('.')[0]); FullVersion = $versionText }
-                }
-            }
-        }
-
-        if ($null -eq $bestCompiler) {
-            throw "Matching 64-bit MinGW compiler (GCC 11+) not found."
+            throw "Matching 64-bit MinGW compiler (GCC 11+) not found. See Debug step for directory structure."
         }
         
         $MinGWBin = $bestCompiler.Path
