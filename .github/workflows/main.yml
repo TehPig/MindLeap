@@ -119,16 +119,12 @@ jobs:
         Compress-Archive -Path dist\* -DestinationPath MindLeap-Windows.zip
       shell: pwsh
 
-    - name: Publish Release
-      uses: softprops/action-gh-release@v1
+    - name: Upload Release Asset (Internal)
       if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
       with:
-        files: MindLeap-Windows.zip
-        name: MindLeap ${{ github.ref_name }}
-        tag_name: ${{ github.ref }}
-        body: "Automated release of MindLeap version ${{ github.ref_name }}"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: release-asset-windows
+        path: MindLeap-Windows.zip
 
   build-linux:
     name: Build & Release (Linux)
@@ -175,8 +171,6 @@ jobs:
         mkdir dist
         cp build/MindLeap dist/
         cp -r assets/sounds dist/
-        # Linux packaging usually involves AppImage or just a tarball
-        # For now, we'll just create a tarball of the binary and assets
         tar -czvf MindLeap-Linux.tar.gz -C dist .
       shell: bash
 
@@ -186,16 +180,12 @@ jobs:
         name: MindLeap-Linux-Build
         path: MindLeap-Linux.tar.gz
 
-    - name: Publish Release
-      uses: softprops/action-gh-release@v1
+    - name: Upload Release Asset (Internal)
       if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
       with:
-        files: MindLeap-Linux.tar.gz
-        name: MindLeap ${{ github.ref_name }}
-        tag_name: ${{ github.ref }}
-        body: "Automated release of MindLeap version ${{ github.ref_name }}"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: release-asset-linux
+        path: MindLeap-Linux.tar.gz
 
   build-macos:
     name: Build & Release (macOS)
@@ -234,8 +224,6 @@ jobs:
 
     - name: Package Application
       run: |
-        # Qt on macOS builds a .app bundle
-        # We use macdeployqt to package it
         $Qt6_DIR/bin/macdeployqt build/MindLeap.app -dmg
         mv build/MindLeap.dmg MindLeap-macOS.dmg
       shell: bash
@@ -246,13 +234,36 @@ jobs:
         name: MindLeap-macOS-Build
         path: MindLeap-macOS.dmg
 
-    - name: Publish Release
-      uses: softprops/action-gh-release@v1
+    - name: Upload Release Asset (Internal)
       if: startsWith(github.ref, 'refs/tags/')
+      uses: actions/upload-artifact@v4
       with:
-        files: MindLeap-macOS.dmg
-        name: MindLeap ${{ github.ref_name }}
-        tag_name: ${{ github.ref }}
-        body: "Automated release of MindLeap version ${{ github.ref_name }}"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: release-asset-macos
+        path: MindLeap-macOS.dmg
+
+  publish-release:
+    name: Publish Combined Release
+    needs: [build-windows, build-linux, build-macos]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-asset-*
+          merge-multiple: true
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            MindLeap-Windows.zip
+            MindLeap-Linux.tar.gz
+            MindLeap-macOS.dmg
+          name: MindLeap ${{ github.ref_name }}
+          tag_name: ${{ github.ref }}
+          body: "Automated release of MindLeap version ${{ github.ref_name }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
