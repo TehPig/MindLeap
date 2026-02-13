@@ -23,8 +23,8 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
-        # 'tools_mingw' is the correct alias for the compiler toolchain
-        tools: 'tools_mingw'
+        # Request the specific modern MinGW version that comes with Qt 6.8
+        tools: 'tools_mingw1310_64'
         cache: 'true'
 
     - name: Setup MinGW Path
@@ -39,6 +39,8 @@ jobs:
         if ($env:QT_PATH) { $SearchRoots += $env:QT_PATH }
         $SearchRoots += Join-Path $env:GITHUB_WORKSPACE "Qt"
         $SearchRoots += "C:\Qt"
+        $SearchRoots += "C:\mingw64"
+        $SearchRoots += "C:\Strawberry\c"
         $SearchRoots += "D:\a"
         
         $compilers = @()
@@ -68,8 +70,19 @@ jobs:
         }
 
         if ($null -eq $bestCompiler) {
-            Write-Host "Current PATH:"
-            $env:PATH -split ';' | Write-Host
+            Write-Host "No GCC 11+ found in Qt or custom roots. Checking system PATH..."
+            $sysGpp = Get-Command g++.exe -ErrorAction SilentlyContinue
+            if ($sysGpp) {
+                $path = Split-Path $sysGpp.Source
+                $versionText = & "$path\g++.exe" -dumpversion
+                Write-Host "Found system GCC $versionText at $path"
+                if ([int]($versionText.Split('.')[0]) -ge 11) {
+                    $bestCompiler = @{ Path = $path; Version = [int]($versionText.Split('.')[0]); FullVersion = $versionText }
+                }
+            }
+        }
+
+        if ($null -eq $bestCompiler) {
             throw "Matching 64-bit MinGW compiler (GCC 11+) not found."
         }
         
