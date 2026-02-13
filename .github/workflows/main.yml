@@ -23,69 +23,28 @@ jobs:
         target: 'desktop'
         arch: 'win64_mingw'
         modules: 'qtmultimedia'
-        # Remove tools from here to handle it manually with better diagnostics
+        # Explicitly request the version we know works with Qt 6.8.1
+        tools: 'tools_mingw1310'
+        dir: '${{ github.workspace }}'
         cache: 'true'
-
-    - name: Debug - List and Install Tools
-      run: |
-        $PythonPath = (Get-Command python.exe).Source
-        Write-Host "Using Python at: $PythonPath"
-        
-        Write-Host "Listing available tools for windows desktop..."
-        & python -m aqt list-tool windows desktop | Write-Host
-        
-        Write-Host "Attempting to install MinGW 13.1.0 (trying multiple possible names)..."
-        $ToolNames = @("tools_mingw131", "tools_mingw1310_64", "tools_mingw", "tools_mingw1120_64")
-        foreach ($name in $ToolNames) {
-            Write-Host "Trying to install tool: $name"
-            try {
-                & python -m aqt install-tool windows desktop $name --outputdir "${{ github.workspace }}/Qt"
-                if ($LASTEXITCODE -eq 0) {
-                    Write-Host "Successfully installed $name"
-                    break
-                }
-            } catch {
-                Write-Host "Failed to install $name"
-            }
-        }
-        
-        Write-Host "Final check of Qt Tools directory..."
-        if (Test-Path "${{ github.workspace }}/Qt/Tools") {
-            Get-ChildItem -Path "${{ github.workspace }}/Qt/Tools" -Recurse -Depth 2 | Select-Object FullName | Write-Host
-        }
-      shell: pwsh
 
     - name: Setup MinGW Path
       run: |
         Write-Host "Locating the matching Qt MinGW toolchain..."
-        $SearchRoots = @()
-        if ($env:Qt6_DIR) {
-            $QtRoot = Split-Path (Split-Path (Split-Path $env:Qt6_DIR))
-            $SearchRoots += Join-Path $QtRoot "Tools"
-            $SearchRoots += $QtRoot
-        }
-        $SearchRoots += Join-Path $env:GITHUB_WORKSPACE "Qt"
-        $SearchRoots += "C:\Qt"
-        $SearchRoots += "D:\a"
+        $QtToolsPath = Join-Path "${{ github.workspace }}" "Qt/Tools"
         
-        $compilers = @()
-        foreach ($root in ($SearchRoots | Select-Object -Unique)) {
-            if (Test-Path $root) {
-                Write-Host "Searching for compilers in: $root"
-                $compilers += Get-ChildItem -Path $root -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                              Where-Object { $_.FullName -match "64" -and $_.FullName -match "mingw" }
-            }
-        }
+        Write-Host "Searching for compilers in: $QtToolsPath"
+        $compilers = Get-ChildItem -Path $QtToolsPath -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                      Where-Object { $_.FullName -match "64" -and $_.FullName -match "mingw" }
         
         $bestCompiler = $null
-        foreach ($c in $compilers | Select-Object -Unique FullName) {
+        foreach ($c in $compilers) {
             $path = Split-Path $c.FullName
             try {
                 $versionText = & "$path\g++.exe" -dumpversion
                 $majorVersion = [int]($versionText.Split('.')[0])
                 Write-Host "Found GCC $versionText at $path"
                 
-                # Prioritize the 13.1.0 version specifically as it's the target for Qt 6.8.1
                 $weight = $majorVersion
                 if ($versionText -eq "13.1.0") { $weight += 1000 } 
 
@@ -100,25 +59,8 @@ jobs:
         }
 
         if ($null -eq $bestCompiler) {
-            # Last ditch effort: search the entire D: drive
-            Write-Host "GCC 11+ not found in standard roots. Searching entire D:\..."
-            $compilers = Get-ChildItem -Path "D:\" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                         Where-Object { $_.FullName -match "64" -and $_.FullName -match "mingw" }
-            foreach ($c in $compilers | Select-Object -Unique FullName) {
-                $path = Split-Path $c.FullName
-                $versionText = & "$path\g++.exe" -dumpversion
-                $majorVersion = [int]($versionText.Split('.')[0])
-                if ($majorVersion -ge 11) {
-                    $weight = $majorVersion
-                    if ($versionText -eq "13.1.0") { $weight += 1000 }
-                    if ($null -eq $bestCompiler -or $weight -gt $bestCompiler.Weight) {
-                        $bestCompiler = @{ Path = $path; Version = $majorVersion; FullVersion = $versionText; Weight = $weight }
-                    }
-                }
-            }
-        }
-
-        if ($null -eq $bestCompiler) {
+            Write-Host "Listing Qt Tools directory for debugging..."
+            Get-ChildItem -Path $QtToolsPath -Recurse -Depth 2 | Select-Object FullName | Write-Host
             throw "Matching 64-bit MinGW compiler (GCC 11+) not found."
         }
         
