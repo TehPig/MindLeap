@@ -31,8 +31,16 @@ jobs:
       run: |
         Write-Host "Locating the matching Qt MinGW toolchain..."
         $SearchRoots = @()
+        
+        # 1. Look relative to Qt6_DIR (most reliable)
+        if ($env:Qt6_DIR) {
+            $QtRoot = Split-Path (Split-Path (Split-Path $env:Qt6_DIR))
+            $SearchRoots += Join-Path $QtRoot "Tools"
+            $SearchRoots += $QtRoot
+        }
+        
+        # 2. Other common locations
         if ($env:QT_PATH) { $SearchRoots += $env:QT_PATH }
-        if ($env:Qt6_DIR) { $SearchRoots += $env:Qt6_DIR }
         $SearchRoots += Join-Path $env:GITHUB_WORKSPACE "Qt"
         $SearchRoots += "C:\Qt"
         $SearchRoots += "D:\a"
@@ -43,23 +51,31 @@ jobs:
                 Write-Host "Searching in: $root"
                 $found = Get-ChildItem -Path $root -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
                          Where-Object { $_.FullName -match "64" -and $_.FullName -match "mingw" } | 
+                         Sort-Object { $_.LastWriteTime } -Descending | # Prefer newer ones
                          Select-Object -First 1
                 if ($found) {
                     $MinGWBin = $found.DirectoryName
-                    Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
-                    break
+                    Write-Host "FOUND candidate: $MinGWBin"
+                    & "$MinGWBin\g++.exe" --version | Select-Object -First 1 | Write-Host
+                    
+                    # Ensure it's not a super old version (GCC 11+ preferred for Qt 6.8)
+                    $versionText = & "$MinGWBin\g++.exe" -dumpversion
+                    if ([int]($versionText.Split('.')[0]) -ge 11) {
+                        Write-Host "SUCCESS! Found compatible MinGW (GCC $versionText) at: $MinGWBin"
+                        break
+                    } else {
+                        Write-Host "Skipping old GCC version: $versionText"
+                        $MinGWBin = $null
+                    }
                 }
             }
         }
 
         if (-not $MinGWBin) {
-            Write-Host "Current PATH:"
-            $env:PATH -split ';' | Write-Host
-            throw "Matching 64-bit MinGW compiler (g++.exe) not found."
+            throw "Matching 64-bit MinGW compiler (GCC 11+) not found."
         }
         
         Write-Host "Cleaning up PATH to avoid conflicts with sh.exe..."
-        # We remove Git's usr/bin and bin which contain sh.exe, but KEEP Qt directories
         $newPath = ($env:PATH -split ';' | Where-Object { $_ -notmatch "Git\\usr\\bin" -and $_ -notmatch "Git\\bin" -and $_ -notmatch "msys64" }) -join ';'
         $env:PATH = "$MinGWBin;$newPath"
         
@@ -86,7 +102,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release `
           -DCMAKE_C_COMPILER="$env:MINGW_BIN/gcc.exe" `
           -DCMAKE_CXX_COMPILER="$env:MINGW_BIN/g++.exe" `
-          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe"
+          -DCMAKE_MAKE_PROGRAM="$env:MINGW_BIN/mingw32-make.exe" `
+          -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
       shell: pwsh
 
     - name: Build
