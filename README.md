@@ -1,5 +1,15 @@
+## Download & Quick Start
+
+### Windows
+The easiest way to run MindLeap on Windows is to download the latest version from the **[Releases](../../releases)** page.
+1. Download `MindLeap-Windows.zip`.
+2. Extract the folder.
+3. Run `MindLeap.exe`.
+
+---
+
 # Compiling
-This guide will walk you through the process of compiling and running the application.
+If you prefer to build the project yourself, follow the guide below.
 
 ## Prerequisites
 
@@ -107,6 +117,7 @@ After building, you can run the application.
 
 #### Prerequisites
 1. **Docker**: Install Docker from https://www.docker.com/get-started.
+2. **GUI Support**: To run this GUI application from Docker, you need an X-Server (Linux), WSLg (Windows), or a remote desktop solution inside the container.
 
 #### Steps to Compile
 

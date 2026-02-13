@@ -96,24 +96,34 @@ jobs:
       run: ctest -C Release --output-on-failure
 
     - name: Package Application
-      if: startsWith(github.ref, 'refs/tags/')
       run: |
         mkdir dist
         copy build\MindLeap.exe dist\
-        windeployqt --release --compiler-runtime dist\MindLeap.exe
+        # Use the full path to windeployqt from the Qt installation
+        & "${{ env.Qt6_DIR }}/bin/windeployqt.exe" --release --compiler-runtime dist/MindLeap.exe
         mkdir dist\sounds
         xcopy /Y /E assets\sounds dist\sounds\
-      shell: cmd
+      shell: pwsh
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MindLeap-Windows-Build
+        path: dist/
 
     - name: Create Release Zip
       if: startsWith(github.ref, 'refs/tags/')
-      run: Compress-Archive -Path dist\* -DestinationPath MindLeap-Windows.zip
+      run: |
+        Compress-Archive -Path dist\* -DestinationPath MindLeap-Windows.zip
+      shell: pwsh
 
     - name: Publish Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: MindLeap-Windows.zip
+        name: MindLeap ${{ github.ref_name }}
+        tag_name: ${{ github.ref }}
         body: "Automated release of MindLeap version ${{ github.ref_name }}"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
