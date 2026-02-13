@@ -129,3 +129,130 @@ jobs:
         body: "Automated release of MindLeap version ${{ github.ref_name }}"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    name: Build & Release (Linux)
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-dev libglib2.0-dev libpulse-dev libdbus-1-dev libxkbcommon-dev libfontconfig1-dev libicu-dev
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.8.1'
+        target: 'desktop'
+        arch: 'linux_gcc_64'
+        modules: 'qtmultimedia'
+        cache: 'true'
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH=$Qt6_DIR
+      shell: bash
+
+    - name: Build
+      run: |
+        cmake --build build --config Release -j $(nproc)
+      shell: bash
+
+    - name: Run Tests
+      working-directory: build
+      run: ctest -C Release --output-on-failure
+
+    - name: Package Application
+      run: |
+        mkdir dist
+        cp build/MindLeap dist/
+        cp -r assets/sounds dist/
+        # Linux packaging usually involves AppImage or just a tarball
+        # For now, we'll just create a tarball of the binary and assets
+        tar -czvf MindLeap-Linux.tar.gz -C dist .
+      shell: bash
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MindLeap-Linux-Build
+        path: MindLeap-Linux.tar.gz
+
+    - name: Publish Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: MindLeap-Linux.tar.gz
+        name: MindLeap ${{ github.ref_name }}
+        tag_name: ${{ github.ref }}
+        body: "Automated release of MindLeap version ${{ github.ref_name }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    name: Build & Release (macOS)
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.8.1'
+        target: 'desktop'
+        arch: 'clang_64'
+        modules: 'qtmultimedia'
+        cache: 'true'
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_PREFIX_PATH=$Qt6_DIR
+      shell: bash
+
+    - name: Build
+      run: |
+        cmake --build build --config Release -j $(sysctl -n hw.ncpu)
+      shell: bash
+
+    - name: Run Tests
+      working-directory: build
+      run: ctest -C Release --output-on-failure
+
+    - name: Package Application
+      run: |
+        # Qt on macOS builds a .app bundle
+        # We use macdeployqt to package it
+        $Qt6_DIR/bin/macdeployqt build/MindLeap.app -dmg
+        mv build/MindLeap.dmg MindLeap-macOS.dmg
+      shell: bash
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MindLeap-macOS-Build
+        path: MindLeap-macOS.dmg
+
+    - name: Publish Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: MindLeap-macOS.dmg
+        name: MindLeap ${{ github.ref_name }}
+        tag_name: ${{ github.ref }}
+        body: "Automated release of MindLeap version ${{ github.ref_name }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
