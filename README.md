@@ -1,3 +1,14 @@
+# MindLeap
+
+**MindLeap** is a high-performance, cross-platform flashcard application designed to supercharge your learning through **Spaced Repetition (SRS)**. Built with C++ and Qt 6, it offers a lightweight and efficient way to memorize anything from language vocabulary to complex technical concepts.
+
+## Key Features
+- **Smart Scheduling**: Implements proven SRS algorithms including **SM2** and the **Leitner System** to optimize your study time.
+- **Cross-Platform**: Native performance on Windows, Linux, and macOS.
+- **Discord Integration**: Show off your study progress with built-in Discord Rich Presence.
+- **Multimedia Support**: Study with more than just text—includes support for sound and imagery.
+- **Statistics**: Track your learning journey with detailed performance metrics.
+
 ## Download & Quick Start
 
 ### Windows
