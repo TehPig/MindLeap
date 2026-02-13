@@ -44,7 +44,7 @@ Make sure the following tools are installed:
 
 Clone the repository or download the source files:
 ```
-git clone https://github.com/TehPigYT/anki-project.git
+git clone https://github.com/TehPig/MindLeap.git
 ```
 Alternatively, download the ZIP file of the repository and extract it.
 
@@ -122,7 +122,7 @@ After building, you can run the application.
 #### Steps to Compile
 
 1. **Clone the Repository**
-   - `git clone https://github.com/TehPigYT/anki-project.git`
+   - `git clone https://github.com/TehPig/MindLeap.git`
    - `cd anki-project`
 
 2. **Build the Docker Image**
