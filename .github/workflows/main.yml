@@ -29,34 +29,42 @@ jobs:
 
     - name: Setup MinGW Path
       run: |
-        Write-Host "Purging PATH of conflicting compilers..."
-        # Blacklist common broken system paths
-        $Paths = $env:PATH -split ';' | Where-Object { $_ -notmatch "mingw" -and $_ -notmatch "msys" -and $_ -notmatch "rtools" }
-        $env:PATH = $Paths -join ';'
-        
         Write-Host "Locating the matching Qt MinGW toolchain..."
-        $QtPath = "${{ env.Qt6_DIR }}" # e.g. D:\a\anki-project\Qt\6.8.1\mingw_64
-        $QtBase = Split-Path (Split-Path (Split-Path $QtPath)) # D:\a\anki-project\Qt
+        $SearchRoots = @()
+        if ($env:QT_PATH) { $SearchRoots += $env:QT_PATH }
+        if ($env:Qt6_DIR) { $SearchRoots += $env:Qt6_DIR }
+        $SearchRoots += Join-Path $env:GITHUB_WORKSPACE "Qt"
+        $SearchRoots += "C:\Qt"
+        $SearchRoots += "D:\a"
         
-        # Search for g++.exe in the Tools subdirectory
-        $MinGWBin = Get-ChildItem -Path "$QtBase\Tools" -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                    Where-Object { $_.FullName -match "64" } | 
-                    Select-Object -First 1 -ExpandProperty DirectoryName
-        
-        if (-not $MinGWBin) {
-            # Fallback: Search the whole Qt directory if the structure varies
-            $MinGWBin = Get-ChildItem -Path $QtBase -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
-                        Where-Object { $_.FullName -match "64" } | 
-                        Select-Object -First 1 -ExpandProperty DirectoryName
+        $MinGWBin = $null
+        foreach ($root in ($SearchRoots | Select-Object -Unique)) {
+            if (Test-Path $root) {
+                Write-Host "Searching in: $root"
+                $found = Get-ChildItem -Path $root -Filter "g++.exe" -Recurse -ErrorAction SilentlyContinue | 
+                         Where-Object { $_.FullName -match "64" -and $_.FullName -match "mingw" } | 
+                         Select-Object -First 1
+                if ($found) {
+                    $MinGWBin = $found.DirectoryName
+                    Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
+                    break
+                }
+            }
         }
 
         if (-not $MinGWBin) {
-            throw "Matching 64-bit MinGW compiler not found in $QtBase"
+            Write-Host "Current PATH:"
+            $env:PATH -split ';' | Write-Host
+            throw "Matching 64-bit MinGW compiler (g++.exe) not found."
         }
         
-        Write-Host "SUCCESS! Found compatible MinGW at: $MinGWBin"
-        echo "MINGW_BIN=$MinGWBin" >> $env:GITHUB_ENV
-        echo "$MinGWBin" >> $env:GITHUB_PATH
+        Write-Host "Cleaning up PATH to avoid conflicts with sh.exe..."
+        # We remove Git's usr/bin and bin which contain sh.exe, but KEEP Qt directories
+        $newPath = ($env:PATH -split ';' | Where-Object { $_ -notmatch "Git\\usr\\bin" -and $_ -notmatch "Git\\bin" -and $_ -notmatch "msys64" }) -join ';'
+        $env:PATH = "$MinGWBin;$newPath"
+        
+        Add-Content -Path $env:GITHUB_ENV -Value "MINGW_BIN=$MinGWBin"
+        Add-Content -Path $env:GITHUB_PATH -Value "$MinGWBin"
       shell: pwsh
 
     - name: Patch RapidJSON
